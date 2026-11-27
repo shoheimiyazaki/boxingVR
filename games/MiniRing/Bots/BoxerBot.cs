@@ -78,7 +78,7 @@ public sealed class BoxerBot : IFighterControl
     private const float PredictionCooldown = 0.8392f;
 
     /// <summary>相手の打ち始めの間合いから外へ置く余裕（腕の長さ倍、<see cref="BotStyle.EdgeRange"/>）。</summary>
-    private const float EdgeMargin = 0.098f;
+    private const float EdgeMargin = 0.097f;
 
     private static readonly Hand[] Hands = [Hand.Left, Hand.Right];
 
@@ -293,7 +293,7 @@ public sealed class BoxerBot : IFighterControl
             _claws = null;
             _read.Pause();
             _crouchTime = MathF.Max(0f, _crouchTime - (CrouchRecovery * dt)); // 相手が倒れている間に、しゃがみの疲れも抜ける
-            var back = Math.Clamp((distance - (Style.NeutralRange + 0.293f) * reach) / reach * 3f, -1f, 0f);
+            var back = Math.Clamp((distance - (Style.NeutralRange + 0.291f) * reach) / reach * 3f, -1f, 0f);
             _head = Vector3.Lerp(_head, Vector3.Zero, 1f - MathF.Exp(-4.767f * dt));
             return new FighterCommand(dir * back, dir,
                 new HandCommand(Guard(Hand.Left, reach, headLocal), false), new HandCommand(Guard(Hand.Right, reach, headLocal), false), _head);
@@ -777,9 +777,9 @@ public sealed class BoxerBot : IFighterControl
     /// <summary>
     /// 相手の届く長さ（<see cref="BotStyle.RangeThreat"/> ＋ 境目の幅）の外へ立つときに足す余白 [腕の長さ]。
     /// 前は「構えで頭が胸より 0.1 腕前へ出る分」として胸と胸へ直す値だったが、前の体で測ると相手の肩（胸の 0.25 腕上）から自分の頭までは胸と胸とほぼ同じで（<c>ReachRangeProbe</c>）、
-    /// 実際は余白として働いていた。届く間合い（<see cref="ReachGap"/>）へ移したとき、前の体の立ち位置を保つ値（0.977 × (1.2 + 0.15 + 0.1) − 0.011 − (1.169 + 0.15)）にした。
+    /// 実際は余白として働いていた。届く間合い（<see cref="ReachGap"/>）へ移したとき、前の体の立ち位置を保つ値（0.9703 × (1.2 + 0.15 + 0.1) − 0.013 − (1.128 + 0.15)）にした。
     /// </summary>
-    private const float RangeHeadLead = 0.087f;
+    private const float RangeHeadLead = 0.116f;
 
     /// <summary>今の歩の届く間合い ÷ 胸と胸の水平な距離（戦略の表の胸と胸の距離を届く間合いへ直す）。</summary>
     private float _reachPerChest = 1f;
@@ -1125,7 +1125,7 @@ public sealed class BoxerBot : IFighterControl
             if (distance <= AttackRangeNow * reach * 1.15f)
             {
                 _wantAttack = false;
-                if (distance < 0.917f * reach && _random.NextSingle() < Style.ThrowRate)
+                if (distance < 0.909f * reach && _random.NextSingle() < Style.ThrowRate)
                 {
                     StartThrow();
                 }
@@ -1161,7 +1161,7 @@ public sealed class BoxerBot : IFighterControl
             return;
         }
 
-        if (_recentDamage > ClinchDamage && distance < 1.063f * reach)
+        if (_recentDamage > ClinchDamage && distance < 1.054f * reach)
         {
             _recentDamage = 0f;
             if (_random.NextSingle() < Style.ClinchRate)
@@ -1192,7 +1192,7 @@ public sealed class BoxerBot : IFighterControl
             return;
         }
 
-        if (_opponentClosing > 0.8937f * reach && distance < Style.NeutralRange * _build.StandOff(Style) * reach && distance > 0.770f * reach)
+        if (_opponentClosing > 0.8937f * reach && distance < Style.NeutralRange * _build.StandOff(Style) * reach && distance > 0.763f * reach)
         {
             _stopJabCooldown = 1.007f;
             if (_random.NextSingle() < Style.StopJab)

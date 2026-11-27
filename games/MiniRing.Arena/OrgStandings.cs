@@ -217,6 +217,13 @@ internal static class OrgBouts
         return CharacterProfile.WeightOf(character.Build);
     }
 
+    /// <summary>計量の体重 [kg]（秤の 0.1 kg の目盛り: <see cref="CharacterProfile.ScaleWeightOf"/>）。階級はこの値で決まる。</summary>
+    public static float ScaleWeightOf(FighterCharacter character)
+    {
+        ArgumentNullException.ThrowIfNull(character);
+        return CharacterProfile.ScaleWeightOf(character.Build);
+    }
+
     /// <summary>出られない理由（出られるなら null）。武器・教科書・指定装備を着用できるかを見る（体重は階級を選ぶだけ）。</summary>
     public static string? Ineligible(Organization org, FighterCharacter character)
     {
@@ -261,8 +268,8 @@ internal static class OrgBouts
             throw new ArgumentException(why);
         }
 
-        var redDivision = org.DivisionOf(WeightOf(red));
-        var blueDivision = org.DivisionOf(WeightOf(blue));
+        var redDivision = org.DivisionOf(ScaleWeightOf(red));
+        var blueDivision = org.DivisionOf(ScaleWeightOf(blue));
         if (redDivision != blueDivision)
         {
             throw new ArgumentException(string.Create(CultureInfo.InvariantCulture,

@@ -87,7 +87,7 @@
       "DefenseRate": 0.255,
       "CounterRate": 0.321,
       "ExitAfterCombo": 0.167,
-      "AttackRange": 0.9412,
+      "AttackRange": 0.933,
       "BreakLikes": {
         "hum": 3.5,
         "dance": 3,

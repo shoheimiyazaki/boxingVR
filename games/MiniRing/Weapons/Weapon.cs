@@ -781,11 +781,10 @@ public sealed class Weapon
     private const float StaffTipInset = 0.02817f;
 
     /// <summary>
-    /// 両手の間隔 [m]: 肩幅ほど（前の基準の体の肩の幅 31 cm。<c>docs/BOJUTSU.md</c>）。棒は両手のてこで回すので、間隔が広いほど向きの指令が楽。
-    /// 2026-11-27: 基準の体の肩幅は 40 cm になったが、40 cm にすると棒の型の経路（腕の長さの単位）が体に入り・手が届かなくなった（BojutsuTests）。
-    /// 型を新しい体の比で書き直すまで前の値（BASE_BODY_PLAN §8.9）。
+    /// 両手の間隔 [m]: 肩幅ほど（基準の体の肩の幅 40 cm。<c>docs/BOJUTSU.md</c>）。棒は両手のてこで回すので、間隔が広いほど向きの指令が楽。
+    /// 2026-11-27: 前の体の肩幅 31 cm から。型の両手を今の体の肩から届く深さへずらす式（<see cref="Motion.MotionImitation.FitBack"/>）を入れてから広げた。
     /// </summary>
-    public const float StaffHandSpacing = 0.3099f;
+    public const float StaffHandSpacing = 0.40f;
 
     // ── 杖（4 尺 2 寸 ≒ 128 cm、ユーザーの指定で 130 cm（値は人形の単位の 46 cm の換算で 1.296 m）、太さ 2.4 cm）。
     // 実物の半径 12 mm を、7 mm のセルで丸く見えるよう 14 mm（セル 4 個ぶん）にした（六尺棒と同じ丸め方）。

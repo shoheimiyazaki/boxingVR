@@ -67,7 +67,7 @@ public sealed record BotStyle
     // ── 間合いの層（docs/LEARNING_PLAN.md の R、RangeSense）──
 
     /// <summary>相手の拳が届くとみなす、相手の両肩から自分のあごまでの距離 [相手の腕の長さ]（踏み込み・体の傾きを含む。<see cref="ReachGap.FromOpponent"/>）。危険度の物差し。</summary>
-    public float RangeThreat { get; init; } = 1.169f;
+    public float RangeThreat { get; init; } = 1.128f;
 
     /// <summary>危険度に応じて構えを上げる度合い（0 = 上げない … 1 = 危険度 1 で目の高さまで顔を覆う）。</summary>
     public float RangeGuard { get; init; }
@@ -201,13 +201,13 @@ public sealed record BotStyle
     public float LearnDamageScale { get; init; } = 10f;
 
     /// <summary>打つときに踏み込む届く間合い（両肩から相手のあごまで、腕の長さ倍。<see cref="ReachGap"/>）。</summary>
-    public float AttackRange { get; init; } = 0.917f;
+    public float AttackRange { get; init; } = 0.909f;
 
     /// <summary>普段の届く間合い（腕の長さ倍。<see cref="ReachGap"/>）。</summary>
-    public float NeutralRange { get; init; } = 1.259f;
+    public float NeutralRange { get; init; } = 1.249f;
 
     /// <summary>攻撃を始めてよい届く間合い（腕の長さ倍。<see cref="ReachGap"/>）。これより遠ければまず詰める。</summary>
-    public float EngageRange { get; init; } = 1.552f;
+    public float EngageRange { get; init; } = 1.540f;
 
     /// <summary>手の速さの倍率（経路の時間の逆数）。</summary>
     public float PunchSpeed { get; init; } = 1f;
@@ -550,8 +550,8 @@ public sealed record BotStyle
         static float Unit(float v) => float.IsFinite(v) ? Math.Clamp(v, 0f, 1f) : 0f;
         static float NonNegative(float v) => float.IsFinite(v) ? MathF.Max(0f, v) : 0f;
         static float Range(float v, float min, float max, float fallback) => Math.Clamp(float.IsFinite(v) ? v : fallback, min, max);
-        var attack = Range(AttackRange, 0.672f, 1.259f, 0.917f); // 胸と胸の 0.7〜1.3 腕を届く間合いへ移した値（ReachGap）
-        var neutral = Range(NeutralRange, attack, 1.845f, 1.259f);
+        var attack = Range(AttackRange, 0.666f, 1.249f, 0.909f); // 胸と胸の 0.7〜1.3 腕を届く間合いへ移した値（ReachGap）
+        var neutral = Range(NeutralRange, attack, 1.831f, 1.249f);
         return this with
         {
             Aggression = Unit(Aggression),
@@ -561,7 +561,7 @@ public sealed record BotStyle
             RestTempo = Range(RestTempo, 0f, 1f, 0.35f),
             AimLead = Range(AimLead, 0f, 1.5f, 1f),
             ElbowTuck = Range(ElbowTuck, 0f, 1f, 0.5f),
-            RangeThreat = Range(RangeThreat, 0.507f, 2.401f, 1.169f),
+            RangeThreat = Range(RangeThreat, 0.436f, 2.412f, 1.128f),
             RangeGuard = Unit(RangeGuard),
             TiredGuardDrop = Range(TiredGuardDrop, 0f, 1f, 0.25f),
             RangeHeadMove = Unit(RangeHeadMove),
@@ -590,7 +590,7 @@ public sealed record BotStyle
             LearnDamageScale = Range(LearnDamageScale, 0.5f, 100f, 10f),
             AttackRange = attack,
             NeutralRange = neutral,
-            EngageRange = Range(EngageRange, neutral, 2.138f, 1.552f),
+            EngageRange = Range(EngageRange, neutral, 2.122f, 1.540f),
             PunchSpeed = Range(PunchSpeed, 0.8f, MaxPunchSpeed, 1f),
             Name = name,
             ComboWeights = comboWeights.ToDictionary(p => p.Key, p => NonNegative(p.Value)),
@@ -667,7 +667,7 @@ public sealed record BotStyle
             BodyCue = Range(BodyCue, 0f, 3f, 0f),
             Aim = Aim?.Validated(),
             EdgeRange = Unit(EdgeRange),
-            EvadeReach = float.IsFinite(EvadeReach) && EvadeReach > 0f ? Math.Clamp(EvadeReach, 0.791f, 1.927f) : 0f,
+            EvadeReach = float.IsFinite(EvadeReach) && EvadeReach > 0f ? Math.Clamp(EvadeReach, 0.732f, 1.918f) : 0f,
             ClinchRate = Unit(ClinchRate),
             GamePlan = GamePlan?.Validated(),
         };

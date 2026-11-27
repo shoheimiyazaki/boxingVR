@@ -63,7 +63,7 @@ public static class DefenseDrill
         FinishSpend = 0f,
         AttackRange = range - 0.1f,
         NeutralRange = range,
-        EngageRange = 1.5516f,
+        EngageRange = 1.5395f,
         ComboWeights = combos ? CombosOf(kind) : kind switch
         {
             PunchKind.Straight => new Dictionary<string, float> { ["1"] = 1f, ["2"] = 1f },
@@ -97,7 +97,7 @@ public static class DefenseDrill
         DefenseRate = defend ? BotStyle.MaxDefenseRate : 0f,
         CounterRate = counters ? 1f : 0f,
         RopeEscape = 1f, // 回避の後退でロープに詰まらない（回避編 E1）
-        EvadeReach = 1.1694f, // 届かない拳は避けない（回避編 E2）
+        EvadeReach = 1.1275f, // 届かない拳は避けない（回避編 E2）
         ClinchRate = 0f,
         ThrowRate = 0f,
         FinishTempo = 0f, // 弱った相手を詰める層は切る（攻め手と同じ理由。受け手が詰めると間合いが変わる）

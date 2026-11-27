@@ -217,8 +217,10 @@ public sealed class SlideGripTests
     [TestMethod]
     public void WhenTheHandTargetsAreFurtherApartThanTheGrips_TheHandNearerTheMiddleSlides_TheOuterOneStays()
     {
-        const float Back = 0.338f;
-        using var rig = new Rig(LeftMovedBack(Back, (step, g, r) =>
+        // 左手の握り直す所は、握りの間隔が 0.31 m だったときと同じ棒の上の点（右手から 0.493 m 後ろ）。間隔を肩幅 0.40 m へ広げた分だけ下げる量を減らす
+        // （同じ下げる量だと両手の目標の開きが腕の届く幅を越え、外の手まで滑った）。
+        var back = 0.338f - (Weapon.StaffHandSpacing - 0.3099f);
+        using var rig = new Rig(LeftMovedBack(back, (step, g, r) =>
             // 前の手の目標を棒に沿って 28 cm 前へ: 目標の距離が握りの間隔より 28 cm 広い。
             step < 554 ? g : g with { Right = g.Right with { TargetLocal = r.On(RightX + 0.2817f) } }));
         rig.Run(553);
@@ -261,7 +263,8 @@ public sealed class SlideGripTests
         var leftAnchor = rig.Center() + (rig.Axis() * rig.Cpu.GripX(Hand.Left)!.Value);
         Assert.IsLessThan(RigTuning.SupportGripReach, Vector3.Distance(leftAnchor, rig.Cpu.GloveCenter(Hand.Left)),
             "the grip point stays with the supporting hand");
-        Assert.IsLessThan(0.6f, MathF.Acos(Math.Clamp(Vector3.Dot(startAxis, rig.Axis()), -1f, 1f)), "and kept its direction roughly (one wrist at a third of the strength sags a little under the staff weight)");
+        // 垂れは片手から棒の重心（真ん中）までのてこ（握りの間隔の半分）に比例して増える: 2026-11-27 に握りの間隔を前の体の肩幅 0.31 m から今の肩幅 0.40 m へ広げた分だけ上限を広げる（0.6 rad は 0.31 m で決めた値）。
+        Assert.IsLessThan(0.6f * Weapon.StaffHandSpacing / 0.3099f, MathF.Acos(Math.Clamp(Vector3.Dot(startAxis, rig.Axis()), -1f, 1f)), "and kept its direction roughly (one wrist at a third of the strength sags a little under the staff weight)");
         rig.Run(201);
         Assert.IsGreaterThan(RightX + 0.0845f, rig.Cpu.GripX(Hand.Right)!.Value, "the right hand takes hold again, further along than before");
         Assert.AreEqual(Forward + RightX, rig.Cpu.GripX(Hand.Right)!.Value - rig.Cpu.GripX(Hand.Left)!.Value, 0.0845f, "the grips settle to the span of the hand targets (the left hand, now the nearer to the middle, slid back to match)");

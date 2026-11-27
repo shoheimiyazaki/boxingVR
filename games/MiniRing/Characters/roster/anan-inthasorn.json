@@ -86,7 +86,7 @@
       "DefenseRate": 0.423,
       "CounterRate": 0.543,
       "ExitAfterCombo": 0.859,
-      "AttackRange": 1.1766,
+      "AttackRange": 1.1669,
       "BreakLikes": {
         "bow": 2.5,
         "prayer": 2,

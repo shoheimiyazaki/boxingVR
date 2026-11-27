@@ -320,7 +320,7 @@ public sealed class ReplayTests
     public void ReplayStoresTheCpuStyleItself_SoRetuningTheChampionDoesNotBreakOldRecordings()
     {
         // 記録時の champion（ここでは独自の値）は、名前でなくスタイルごと残る。名簿の champion が後で変わっても同じ相手で再生する。
-        var oldChampion = Bots.BotCatalog.Champion with { Aggression = 0.93f, NeutralRange = 1.0828f, ReadGuard = 0.6f };
+        var oldChampion = Bots.BotCatalog.Champion with { Aggression = 0.93f, NeutralRange = 1.0737f, ReadGuard = 0.6f };
         using var game = new BoxingGame(seed: 6, corners: Bots.BotCatalog.Corners(oldChampion));
         var stream = new MemoryStream();
         using (var recorder = new ReplayRecorder(stream, game, "test"))

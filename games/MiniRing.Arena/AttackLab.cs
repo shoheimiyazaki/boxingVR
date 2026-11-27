@@ -71,7 +71,7 @@ internal sealed class AttackLab(int bouts, float seconds, int seed, Action<strin
         {
             Name = $"attack-{combo}", Telegraph = telegraph, ComboWeights = new Dictionary<string, float> { [combo] = 1f },
         }).Validated();
-        var target = BotCatalog.Boxer with { Name = "target", GuardHeight = TargetGuard, AttackRange = 0.6726f, NeutralRange = 0.6726f, EngageRange = 0.6726f, EdgeRange = 0f, Attacks = false, DefenseRate = 0f, Prediction = 0f, CounterRate = 0f, ClinchRate = 0f, Circling = 0f, HeadMovement = 0f };
+        var target = BotCatalog.Boxer with { Name = "target", GuardHeight = TargetGuard, AttackRange = 0.6662f, NeutralRange = 0.6662f, EngageRange = 0.6662f, EdgeRange = 0f, Attacks = false, DefenseRate = 0f, Prediction = 0f, CounterRate = 0f, ClinchRate = 0f, Circling = 0f, HeadMovement = 0f };
         int thrown = 0, hits = 0, head = 0;
         float speed = 0f, fistSpeed = 0f, mass = 0f, energy = 0f, damage = 0f, time = 0f;
         float gap = 0f;

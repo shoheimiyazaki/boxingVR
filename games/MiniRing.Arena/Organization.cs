@@ -115,7 +115,7 @@ internal sealed record OrgEntry(MiniRing.Weapons.HandWear? Gear, bool Weapons, I
 /// <param name="LimitKg">体重の上限 [kg]（その値ちょうどまで入る。実物の階級は 0.1 kg 刻み: ライト級 61.2 など）。null なら上限なし（最も重い階級・無差別級）。</param>
 internal sealed record OrgDivision(string Id, string Name, float? LimitKg)
 {
-    /// <summary>この階級に入る最も重い整数の体重 [kg]（計量の体重は kg に丸めた値: <see cref="MiniRing.Characters.CharacterProfile.WeightOf"/>）。上限なしは null。</summary>
+    /// <summary>この階級に入る最も重い整数の体重 [kg]（体重を kg で選ぶ画面の上限。作った体の計量の体重 <see cref="MiniRing.Characters.CharacterProfile.ScaleWeightOf"/> はちょうどその kg）。上限なしは null。</summary>
     public int? MaxWholeKg => LimitKg is { } limit ? (int)MathF.Floor(limit + 1e-4f) : null;
 
     /// <summary>画面の上限の書き方（61.2・73 のように、整数なら小数を付けない）。</summary>
@@ -154,7 +154,7 @@ internal sealed record Organization(string Id, string Name, string LogoText, str
     public bool HasWeightClasses => Divisions.Count > 1;
 
     /// <summary>体重 <paramref name="weightKg"/> の入る階級（上限がその体重以上の、いちばん軽い階級）。</summary>
-    public OrgDivision DivisionOf(int weightKg) => Divisions.First(d => d.LimitKg is not { } limit || weightKg <= limit);
+    public OrgDivision DivisionOf(float weightKg) => Divisions.First(d => d.LimitKg is not { } limit || weightKg <= limit);
 
     /// <summary>階級を id で引く。</summary>
     public OrgDivision Division(string id)

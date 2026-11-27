@@ -276,16 +276,21 @@ internal sealed class MakerServer
         return new JsonObject { ["draft"] = JsonSerializer.SerializeToNode(draft, Json) };
     }
 
+    /// <summary>この骨格で作れる人のボクサーの体重の幅 [kg]（太さの比が <see cref="CharacterMaker.Range"/> の中。キャンペーンの <c>CampaignBoxer.WeightRange</c> と同じ式）。</summary>
+    private static (int Min, int Max) WeightRange(int heightCm, float arms, float legs)
+        => BodySizing.WeightRange(new BodyBuild(BodySizing.HeightRatio(heightCm, legs), arms, legs, 1f), CharacterMaker.Range.MinMuscle, CharacterMaker.Range.MaxMuscle);
+
     /// <summary>身長・腕・脚のときの体重の幅と身長の幅（脚の長さのとき）。muscle があれば、その太さの体重（体型を選んだとき）。</summary>
     private static JsonObject Weight(JsonNode body)
     {
         var height = body["heightCm"]?.GetValue<int>() ?? CharacterProfile.StandardHeightCm;
         var arms = body["arms"]?.GetValue<float>() ?? 1f;
         var legs = body["legs"]?.GetValue<float>() ?? 1f;
-        var (hlo, hhi) = (CharacterProfile.HeightOf(new BodyBuild(BodySizing.MinRatio, 1f, legs, 1f)), CharacterProfile.HeightOf(new BodyBuild(BodySizing.MaxRatio, 1f, legs, 1f)));
-        height = Math.Clamp(height, hlo + 1, hhi - 1);
-        var (lo, hi) = BodySizing.WeightRange(height, arms, legs);
-        var result = new JsonObject { ["range"] = new JsonArray(lo, hi), ["heightRange"] = new JsonArray(hlo + 1, hhi - 1) };
+        // 作れる人のボクサーの範囲はキャンペーンと同じ 1 つ（maker.json の boxerRange: CharacterMaker.Range。2026-11-27 まで体格の比 0.6〜1.5 の全部を出していた）。
+        var range = CharacterMaker.Range;
+        height = Math.Clamp(height, range.MinHeightCm, range.MaxHeightCm);
+        var (lo, hi) = WeightRange(height, arms, legs);
+        var result = new JsonObject { ["range"] = new JsonArray(lo, hi), ["heightRange"] = new JsonArray(range.MinHeightCm, range.MaxHeightCm) };
         if (body["muscle"] is JsonValue m && m.TryGetValue<float>(out var muscle))
         {
             result["weightKg"] = BodySizing.WeightFor(height, muscle, arms, legs);
@@ -324,7 +329,7 @@ internal sealed class MakerServer
     /// <summary>身長・体重・体格・物理の質量（体格が解けないときは体重の幅だけ）。</summary>
     private static JsonObject BodyNumbers(CharacterDraft draft)
     {
-        var (lo, hi) = BodySizing.WeightRange(draft.HeightCm, draft.Arms, draft.Legs);
+        var (lo, hi) = WeightRange(draft.HeightCm, draft.Arms, draft.Legs);
         var build = BodySizing.Solve(draft.HeightCm, draft.WeightKg, draft.Arms, draft.Legs);
         return new JsonObject
         {

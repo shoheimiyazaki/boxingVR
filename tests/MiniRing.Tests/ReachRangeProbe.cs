@@ -34,6 +34,11 @@ public sealed class ReachRangeProbe
             var oldThreat = Vector3.Distance(cpu.ChestPosition + new Vector3(0f, 0.25f * cpu.ArmReach, 0f), f.HeadPosition) / cpu.ArmReach;
             var myChin = f.AsTarget.Point(AimGoal.Chin, 0.5f * (cpu.ShoulderPosition(Hand.Left) + cpu.ShoulderPosition(Hand.Right))) ?? f.HeadPosition;
             var fromOpp = 0.5f * (Vector3.Distance(cpu.ShoulderPosition(Hand.Left), myChin) + Vector3.Distance(cpu.ShoulderPosition(Hand.Right), myChin)) / cpu.ArmReach;
+            float Flat(Vector3 a, Vector3 b) => Vector3.Distance(a with { Y = 0f }, b with { Y = 0f });
+            float FlatFrom(Hand hand) => Flat(f.ShoulderPosition(hand), bout.Game.PlayerSense.OpponentTargets?.Point(AimGoal.Chin, f.ShoulderPosition(hand)) ?? bout.Game.Cpu.HeadPosition);
+            var flatMine = 0.5f * (FlatFrom(Hand.Left) + FlatFrom(Hand.Right)) / f.ArmReach;
+            var flatTheirs = 0.5f * (Flat(cpu.ShoulderPosition(Hand.Left), myChin) + Flat(cpu.ShoulderPosition(Hand.Right), myChin)) / cpu.ArmReach;
+            Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"FLAT chest {bout.Distance:0.000} -> mine {flatMine:0.000} theirs {flatTheirs:0.000} oldThreat {oldThreat:0.000}"));
             Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"THREAT chest {bout.Distance:0.000} -> oldThreat {oldThreat:0.000} fromOpp {fromOpp:0.000}"));
             Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"SHOULDERS chest {bout.Distance:0.000} -> mean {mean:0.000} left {From(Hand.Left):0.000} right {From(Hand.Right):0.000} glove/arm {f.GloveRadius / f.ArmReach:0.000}"));
             var offset = (center - f.ChestPosition) / f.ArmReach;

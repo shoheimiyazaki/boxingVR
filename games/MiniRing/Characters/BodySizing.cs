@@ -40,7 +40,8 @@ public static class BodySizing
             throw new ArgumentOutOfRangeException(nameof(weightKg), weightKg, $"身長 {heightCm} cm で作れる体重は {lo}〜{hi} kg です（筋肉の太さが基準の {MinRatio}〜{MaxRatio} 倍）。");
         }
 
-        var muscle = Bisect(m => PhysicalMassKg(new BodyBuild(height, arms, legs, m, fourLegged)), weightKg, m => CharacterProfile.WeightOf(new BodyBuild(height, arms, legs, m, fourLegged)) == weightKg)
+        // 計量の体重（0.1 kg の目盛り）がちょうど weightKg になる太さ（kg に丸めた体重で止めると 61.4 kg の体が 61 kg になり、階級の境 61.2 を越えた）。
+        var muscle = Bisect(m => PhysicalMassKg(new BodyBuild(height, arms, legs, m, fourLegged)), weightKg, m => CharacterProfile.ScaleWeightOf(new BodyBuild(height, arms, legs, m, fourLegged)) == weightKg)
             ?? throw new InvalidOperationException($"身長 {heightCm} cm で体重 {weightKg} kg になる太さが見つかりませんでした。");
         return new BodyBuild(height, arms, legs, muscle, fourLegged).Validate();
     }
@@ -80,12 +81,12 @@ public static class BodySizing
             throw new ArgumentOutOfRangeException(nameof(weightKg), weightKg, $"この骨格で作れる体重は {lo}〜{hi} kg です（筋肉の太さが基準の {MinRatio}〜{MaxRatio} 倍）。");
         }
 
-        if (CharacterProfile.WeightOf(build) == weightKg)
+        if (CharacterProfile.ScaleWeightOf(build) == weightKg)
         {
             return build;
         }
 
-        var muscle = Bisect(m => PhysicalMassKg(build with { Muscle = m }), weightKg, m => CharacterProfile.WeightOf(build with { Muscle = m }) == weightKg)
+        var muscle = Bisect(m => PhysicalMassKg(build with { Muscle = m }), weightKg, m => CharacterProfile.ScaleWeightOf(build with { Muscle = m }) == weightKg)
             ?? throw new InvalidOperationException($"体重 {weightKg} kg になる太さが見つかりませんでした。");
         return (build with { Muscle = muscle }).Validate();
     }

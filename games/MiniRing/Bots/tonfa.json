@@ -2,7 +2,7 @@
   "Name": "tonfa", "RingName": "トンファー", "Aggression": 0.6, "Telegraph": 0.08392,
   "Aim": { "Chin": 1, "Temple": 1, "Liver": 1.5, "SolarPlexus": 1.5, "Heart": 0.3, "GuardArm": 0.4 },
   "ComboWeights": { "1": 2, "2": 2, "1-2": 3, "1-2-3": 1 },
-  "AttackRange": 0.9656, "NeutralRange": 1.2098, "EngageRange": 1.5028,
+  "AttackRange": 0.9573, "NeutralRange": 1.1999, "EngageRange": 1.491,
   "RangeGuard": 0.6,
   "ParryWeight": 4, "BlockWeight": 1.2, "SlipWeight": 0.5, "SwayWeight": 0.3, "StepBackWeight": 0.5,
   "GuardWidth": 1.1,
