@@ -1,0 +1,17 @@
+{
+  "_comment": "2026-11-28: 新しい基準の体（175 cm・75 kg、physics 107）で、体型の違う 4 人の IVF ライトヘビー級トーナメント（準決勝 2 試合＋決勝）。ダニヤル 188 cm の細身・アルバート 175 cm の標準でリーチ型・ジョアン 171 cm の筋肉質でずんぐり・シフォ 186 cm の長身で重い手。全員グローブ、同じ階級（計量 74〜77 kg）。プロスペクティブ制（Haiku）。",
+  "org": "ivf",
+  "event": "IVF ライトヘビー級トーナメント",
+  "program": "IVF ライトヘビー級トーナメント",
+  "rounds": 2,
+  "break": 12,
+  "out": "docs/video/ivf-bodytypes-1128",
+  "scoutSeeds": [1, 2, 3, 4, 5, 6],
+  "partLimitMiB": 29,
+  "commentary": { "writer": "prospective", "model": "haiku" },
+  "bouts": [
+    { "red": "daniyar-seitkali", "blue": "joao", "seed": "auto", "bout": "準決勝第1試合", "stake": "細身の長身か、低く構える筋肉質か。勝者は決勝へ", "next": "決勝進出" },
+    { "red": "albert", "blue": "sipho-van-wyk", "seed": "auto", "bout": "準決勝第2試合", "stake": "リーチで突く標準体型か、重い手の長身か。勝者は決勝へ", "next": "決勝進出" },
+    { "red": "winner:1", "blue": "winner:2", "seed": "auto", "bout": "決勝", "stake": "勝てば優勝", "next": "優勝" }
+  ]
+}

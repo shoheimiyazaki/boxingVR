@@ -1,0 +1,17 @@
+{
+  "_comment": "2026-11-28: 新しい基準の体（175 cm・75 kg、physics 107）で、体格差のはっきりした 4 人の WVC 無差別トーナメント（準決勝 2 試合＋決勝）。ドミトリー 201 cm・159 kg の巨漢、ラモン 161 cm・69 kg の小柄でずんぐり、ダニヤル 188 cm・74 kg の細身の長身、ヨアンドリー 178 cm・80 kg のリーチ型。プロスペクティブ制（Haiku）。",
+  "org": "wvc",
+  "event": "WVC 無差別トーナメント",
+  "program": "WVC 無差別トーナメント",
+  "rounds": 2,
+  "break": 12,
+  "out": "docs/video/wvc-bodytypes-1128",
+  "scoutSeeds": [1, 2, 3, 4],
+  "partLimitMiB": 29,
+  "commentary": { "writer": "prospective", "model": "haiku" },
+  "bouts": [
+    { "red": "dmitri", "blue": "ramon", "seed": "auto", "bout": "準決勝第1試合", "stake": "巨漢対小柄。勝者は決勝へ", "next": "決勝進出" },
+    { "red": "yoandry", "blue": "daniyar-seitkali", "seed": "auto", "bout": "準決勝第2試合", "stake": "リーチ型か細身の長身か。勝者は決勝へ", "next": "決勝進出" },
+    { "red": "winner:1", "blue": "winner:2", "seed": "auto", "bout": "決勝", "stake": "勝てば優勝", "next": "優勝" }
+  ]
+}
