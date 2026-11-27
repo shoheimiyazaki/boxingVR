@@ -122,7 +122,7 @@
       }
     },
     "vs": {},
-    "weaponBot": {"Forms": {"harai-men": {"Tempo": 1.4706049, "Twist": 0.48348594, "Lift": 0.08529782, "Lean": 0.096457824, "Reach": 0.020456215, "Follow": 0.13070072}, "shomen": {"Tempo": 2.2118938, "Twist": 1.4483559, "Lift": 0.2507075, "Lean": -0.056554742, "Reach": -0.113634825, "Follow": 0.009202547}}}
+    "weaponBot": {"Forms": {"harai-men": {"Tempo": 1.4706049, "Twist": 0.48348594, "Lift": 0.08529782, "Lean": 0.096457824, "Reach": 0.020456215, "Follow": 0.13070072}, "shomen": {"Tempo": 1.9392513, "Twist": 1.4394923, "Lift": 0.33417192, "Lean": -0.00039629638, "Reach": -0.033546485, "Follow": -0.03566254}}}
   },
   "record": [
     {
@@ -172,6 +172,30 @@
       "roster": "seeds 11,12 x 29 bodies: textbook 0/58 at 3.7 m/s, current 0/58 at 8.8 m/s, adopted 50/58 at 9.0 m/s",
       "adopted": true,
       "note": "胴の震えを止めた体（物理 106 仮）に合わせて練習し直した。震えが刀と頭の接触の力積を水増ししていて、震えの無い体では今の教育の一撃が倒さなくなった（docs/BOXING.md §1-28）。SwordPracticeProbe.RetrainForBody"
+    },
+    {
+      "kind": "swordpractice",
+      "date": "2026-11-27",
+      "physicsVersion": 106,
+      "form": "harai-men",
+      "from": "Tempo 1.47 Twist 0.48 Lift 0.09 Lean 0.10 Reach 0.02 Follow 0.13",
+      "search": "(1+12) x 30, seed 5, practice seeds 1,2 x standard,heavy,dmitri",
+      "held": "the best candidate did not beat the current form",
+      "roster": "seeds 11,12 x 29 bodies: textbook 0/58 at 7.5 m/s, current 40/58 at 10.2 m/s",
+      "adopted": false,
+      "note": "胴の震えを止め、切っ先を合わせる手首の粘りを前腕に対する相対にした体（物理 106 仮）で練習し直した。SwordPracticeProbe.RetrainForBody"
+    },
+    {
+      "kind": "swordpractice",
+      "date": "2026-11-27",
+      "physicsVersion": 106,
+      "form": "shomen",
+      "from": "Tempo 2.21 Twist 1.45 Lift 0.25 Lean -0.06 Reach -0.11 Follow 0.01",
+      "search": "(1+12) x 30, seed 5, practice seeds 1,2 x standard,heavy,dmitri",
+      "held": "seeds 11,12 x ramon,akira,marcus,takumi-ishiguro: incapacitated 0/8 -> 0/8, score 0.7 -> 4.9",
+      "roster": "seeds 11,12 x 29 bodies: textbook 0/58 at 3.4 m/s, current 0/58 at 8.6 m/s, adopted 11/58 at 8.3 m/s",
+      "adopted": true,
+      "note": "胴の震えを止め、切っ先を合わせる手首の粘りを前腕に対する相対にした体（物理 106 仮）で練習し直した。SwordPracticeProbe.RetrainForBody"
     }
   ],
   "locales": {

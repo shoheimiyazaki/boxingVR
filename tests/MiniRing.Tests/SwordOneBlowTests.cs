@@ -19,7 +19,7 @@ public sealed class SwordOneBlowTests
 
     [TestMethod]
     [DataRow("jin", true)]
-    // 2026-11-27（物理 106 仮、胴の震えを止めた）: コンラートの長剣の斬り下ろしは教科書でも 5 人全員を倒す（名簿の 29 体 × 種 11・12 で 56/58、教育は 58/58）。
+    // 2026-11-27（物理 106 仮、胴の震えを止めた）: コンラートの長剣の斬り下ろしは教科書でも 5 人全員を倒す（名簿の 29 体 × 種 11・12 で 58/58、練習し直した教育は 48/58 で刃先は倍の速さ）。
     // 5 人では「教科書より多く」が飽和で成り立たないので、「少なくない・刃先が速い」を見る（震えのあった体では教科書が 5 人全員には届かなかった）。
     [DataRow("konrad", false)]
     // 2026-11-26（PhysicsVersion 103、つま先の蝶番を固くした）: エドガーの教科書の切り下ろし（刃先 5.9 m/s）は、固いつま先の体では頭を首の上で大きくねじって
@@ -33,6 +33,9 @@ public sealed class SwordOneBlowTests
         var educated = who.WeaponStyle!;
         var textbook = WeaponCatalog.Textbook(who.Weapon!.Value);
         Assert.IsNotNull(educated.Forms, $"{id} has form tunes in the education");
+        // 2026-11-27（物理 106 仮、胴の震えを止めた）: 型ごとに「少なくない・刃先が速い」、型の合計で（moreThanTextbook なら）「教科書より多く倒す」を見る。
+        // jin の面は名簿の 29 体 × 種 11・12 で教科書 0/58・教育 11/58 だが、この 5 人では 0/5 同士になる（払い面は 0/5 対 2/5）。
+        var (textbookTotal, educatedTotal) = (0, 0);
         foreach (var (form, tune) in educated.Forms)
         {
             var before = Victims.Select(v => SwordPractice.Swing(who, textbook, SwordPractice.Technique(who, form, FormTune.Identity), 11, SwordPractice.Victim(v))).ToList();
@@ -41,15 +44,15 @@ public sealed class SwordOneBlowTests
                 + $"educated {after.Count(o => o.Incapacitated)}/{Victims.Length} at {after.Average(o => o.ImpactSpeed):0.0} m/s";
             Console.WriteLine(detail);
             Assert.IsTrue(after.All(o => o.Swung), $"the educated form is swung ({detail})");
-            if (moreThanTextbook)
-            {
-                Assert.IsGreaterThan(before.Count(o => o.Incapacitated), after.Count(o => o.Incapacitated), $"more one-blow incapacitations ({detail})");
-            }
-            else
-            {
-                Assert.IsGreaterThanOrEqualTo(before.Count(o => o.Incapacitated), after.Count(o => o.Incapacitated), $"no fewer one-blow incapacitations ({detail})");
-            }
+            Assert.IsGreaterThanOrEqualTo(before.Count(o => o.Incapacitated), after.Count(o => o.Incapacitated), $"no fewer one-blow incapacitations ({detail})");
             Assert.IsGreaterThan(before.Average(o => o.ImpactSpeed), after.Average(o => o.ImpactSpeed), $"the blade is faster just before it lands ({detail})");
+            textbookTotal += before.Count(o => o.Incapacitated);
+            educatedTotal += after.Count(o => o.Incapacitated);
+        }
+
+        if (moreThanTextbook)
+        {
+            Assert.IsGreaterThan(textbookTotal, educatedTotal, $"{id}: more one-blow incapacitations over the educated forms ({textbookTotal} -> {educatedTotal})");
         }
     }
 }

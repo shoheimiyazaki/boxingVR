@@ -136,6 +136,18 @@
       "roster": "seeds 11,12 x 29 bodies: textbook 0/58 at 5.8 m/s, current 5/58 at 10.3 m/s",
       "adopted": false,
       "note": "胴の震えを止めた体（物理 106 仮）で練習し直したが、比べ直しで今の教育を上回る型が無かった。震えが頭のねじれを水増ししていたので、教科書も教育も倒す数が減った（27 -> 0、26 -> 5）。今の教育は教科書より多く倒し刃先も速いまま（docs/BOXING.md §1-28）"
+    },
+    {
+      "kind": "swordpractice",
+      "date": "2026-11-27",
+      "physicsVersion": 106,
+      "form": "kiri-oroshi",
+      "from": "Tempo 2.18 Twist 1.02 Lift 0.03 Lean -0.01 Reach 0.03",
+      "search": "(1+12) x 30, seed 5, practice seeds 1,2 x standard,heavy,dmitri",
+      "held": "the best candidate did not beat the current form",
+      "roster": "seeds 11,12 x 29 bodies: textbook 2/58 at 5.7 m/s, current 20/58 at 10.5 m/s",
+      "adopted": false,
+      "note": "胴の震えを止め、切っ先を合わせる手首の粘りを前腕に対する相対にした体（物理 106 仮）で練習し直した。SwordPracticeProbe.RetrainForBody"
     }
   ],
   "locales": {
