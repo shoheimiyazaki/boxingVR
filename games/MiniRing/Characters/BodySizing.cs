@@ -110,7 +110,7 @@ public static class BodySizing
         ArgumentNullException.ThrowIfNull(build);
         var tuning = FighterTuning.Default with { Build = build };
         var masses = tuning.Masses;
-        var leg = masses.Thigh + masses.Shin + (masses.Foot / (1f - FootGeometry.ToeShare));
+        var leg = masses.Thigh + masses.Shin + masses.Foot + tuning.ToeMass;
         // 四足は脚ごとに骨盤と腿の間の基節（coxa、Fighter.AddRearRig）を 1 つ持つ。
         var coxae = build.FourLegged ? 2f * build.LegPairs * tuning.CoxaMass : 0f;
         var trunkAndArms = masses.Total - (2f * (masses.Thigh + masses.Shin + masses.Foot));

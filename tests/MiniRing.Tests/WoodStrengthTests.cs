@@ -50,7 +50,7 @@ public sealed class WoodStrengthTests
 
         Assert.IsLessThan(palette[BoxerAnatomy.Wood].Mechanics!.Tensile!.Value, BoxerAnatomy.HandMechanics.Tensile!.Value, "the weapon wood is the stronger, real oak");
         // 2026-11-25（PhysicsVersion 105）: 武器の樫は実物の密度 700 kg/m³ に戻した（BoxerAnatomy.WeaponDensity）。手の組織は前の相似の密度のまま（手の重さは変えない）。
-        Assert.AreEqual(700f * BoxerAnatomy.DensitySimilitude, BoxerAnatomy.HandMechanics.Density, 1e-3f, "the hand weighs as before (the similitude density)");
+        Assert.AreEqual(313f, BoxerAnatomy.HandMechanics.Density, 1e-3f, "the hand weighs as before (its grid is 2-3x a real hand's volume; docs/DEBT.md)");
         Assert.AreEqual(700f, palette[BoxerAnatomy.Wood].Mechanics!.Density, 1e-3f, "the weapon oak has the real density");
     }
 

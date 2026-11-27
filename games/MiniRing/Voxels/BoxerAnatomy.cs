@@ -155,22 +155,16 @@ public static class BoxerAnatomy
     /// </summary>
     public const float StressSimilitude = Similitude * 1.2602f;
 
-    /// <summary>
-    /// 段 2 の密度の倍率: 人形の武器は人の密度 × 人形の寸法だった（体に対して 1/2.24 の重さ）。実物大の寸法で同じ重さの比に保つには密度 × M/L³ = 10 / 22.35 = 0.4474。
-    /// 武器の質量（密度 × 体積）・曲げの慣性で効く。段 3 で 1 にする。
-    /// </summary>
-    public const float DensitySimilitude = 0.4474f;
-
     /// <summary>段 2 のたわむ距離の倍率: 表の値（皮膚 5 mm など）は人形の体のセル（5 mm）で合わせた長さなので、実物大では × L = 2.817。段 3 で人の値（× 1）へ。</summary>
     public const float GiveSimilitude = 2.8169f;
 
     /// <summary>
     /// 人の材質の値を、段 2 の相似則で今の人形と同じ壊れ方にする（強さ・引張・ヤング率・紐の応力 × <see cref="StressSimilitude"/>、
-    /// 密度 × <see cref="DensitySimilitude"/>、たわむ距離 × <see cref="GiveSimilitude"/>）。
+    /// たわむ距離 × <see cref="GiveSimilitude"/>）。密度は実物のまま（2026-11-27 まで × 0.4474 の相似の倍率を掛けていたが、体重をボクセルで実測するので外した:
+    /// docs/plans/BASE_BODY_PLAN.md §3）。
     /// </summary>
     public static VoxelMechanics Doll(VoxelMechanics human) => human with
     {
-        Density = human.Density * DensitySimilitude,
         Give = human.Give * GiveSimilitude,
         Strength = human.Strength * StressSimilitude,
         Tensile = human.Tensile * StressSimilitude,
@@ -189,11 +183,10 @@ public static class BoxerAnatomy
     public static VoxelMechanics IronMechanics { get; } = WeaponDensity(Doll(new(7800f, 600e6f, 0.0002f, Tensile: 1.5e9f, Stiffness: 200e9f)), 7800f);
 
     /// <summary>
-    /// 武器の材料（鋼・樫）の密度を実物に戻す（2026-11-25、段 3 の一部。docs/plans/FORM_DECAY_STUDY.md）。段 2 の相似の密度の倍率（<see cref="DensitySimilitude"/> 0.4474）を
+    /// 武器の材料（鋼・樫）の密度を実物に戻す（2026-11-25、段 3 の一部。docs/plans/FORM_DECAY_STUDY.md）。段 2 の相似の密度の倍率（0.4474、2026-11-27 に体の材料からも外した）を
     /// 掛けたままだと、形は実物大なのに刀 0.61 kg・ロングソード 0.60 kg・六尺棒 0.52 kg と実物の 4〜5 割の重さで、軽い刃が手首の先で暴れた。
     /// 戻すと形を変えずに刀 1.36 kg（実物は拵え込みで 1.0〜1.4 kg）・ロングソード 1.33 kg（1.3〜1.6 kg）・片手剣 1.95 kg（1.0〜1.5 kg: 刃が厚く、重い側に外れる）・
-    /// 六尺棒 1.17 kg（1.2〜1.5 kg）・杖 0.54 kg（0.5〜0.7 kg）・盾 4.8 kg（3〜6 kg）になる。体の材料（骨・肉…）は相似の密度のまま（体の質量は部位の体積から別に出す:
-    /// docs/DEBT.md「キャラクター」）。
+    /// 六尺棒 1.17 kg（1.2〜1.5 kg）・杖 0.54 kg（0.5〜0.7 kg）・盾 4.8 kg（3〜6 kg）になる。<see cref="Doll"/> が密度を変えなくなった（2026-11-27）ので、今は確かめの意味だけ。
     /// </summary>
     private static VoxelMechanics WeaponDensity(VoxelMechanics doll, float realDensity) => doll with { Density = realDensity };
 
@@ -207,10 +200,12 @@ public static class BoxerAnatomy
     public static VoxelMechanics WoodMechanics { get; } = WeaponDensity(Doll(new(700f, 8e6f, 0.001f, Tensile: 105e6f, Stiffness: 12.3e9f)), 700f);
 
     /// <summary>
-    /// 手の組織（<see cref="HandSkin"/>・<see cref="HandMuscle"/>・<see cref="HandBone"/>）の物性: 2026-11-25 までの木の値（曲げ強さ 60 MPa・ヤング率 10 GPa）のまま。
-    /// 人の手の値ではない近道（docs/DEBT.md「手の物性を木の値で代用」）。武器の木を実物の樫へ直したとき、拳の当たり・手の質量・削れ方を変えないよう分けた。
+    /// 手の組織（<see cref="HandSkin"/>・<see cref="HandMuscle"/>・<see cref="HandBone"/>）の物性: 強さは 2026-11-25 までの木の値（曲げ強さ 60 MPa・ヤング率 10 GPa）のまま。
+    /// 人の手の値ではない近道（docs/DEBT.md「手の物性を木の値で代用」）。武器の木を実物の樫へ直したとき、拳の当たり・削れ方を変えないよう分けた。
+    /// 密度 313 kg/m³（2026-11-27 までの木の 700 × 相似の 0.4474 と同じ値）も近道: 手の格子はグローブの中を埋めた形で実物の手の 2〜3 倍の体積があり、
+    /// 手の組織の密度（≈ 1100）にすると手＋グローブが 1.1 kg（実物は手 0.45 kg ＋ 10 oz のグローブ 0.28 kg）になる（GloveShapeTests）。手の形を実物へ直すまで質量を前のまま保つ。
     /// </summary>
-    public static VoxelMechanics HandMechanics { get; } = Doll(new(700f, 8e6f, 0.001f, Tensile: 60e6f, Stiffness: 10e9f));
+    public static VoxelMechanics HandMechanics { get; } = Doll(new(313f, 8e6f, 0.001f, Tensile: 60e6f, Stiffness: 10e9f));
 
     /// <summary>布と革は皮膚と同じ削れにくさ・同じ組織（肉）にする: 着ても打たれ強さと部位の力は裸のときと変わらない。</summary>
     private const float SkinToughness = 0.7f;

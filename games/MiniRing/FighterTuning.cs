@@ -27,16 +27,30 @@ public sealed record FighterTuning
     public float MassScale { get; init; } = 1f;
 
     /// <summary>
-    /// 頭の大きさの倍率（体の縮尺に対して）。0.8 で身長が頭 7.5 個分（人の比率。1.15 では 5.6 個分）。
-    /// 0.72 では小さすぎて見た目が変だったので一度 1.15 に戻した（予測編 P7）が、人の比率にしてほしいという要望で 0.8 に（ダメージ編 D2）。
+    /// 頭の大きさの倍率（基準の体 <see cref="StandardHalfExtents"/> の頭に対して。調べ物用、既定は 1）。
+    /// 2026-11-27 まで Aigis の既定の体に掛ける 0.8（身長が頭 7.5 個分）だった。今は基準の体の頭が身長の 0.13（実物の比）。
     /// </summary>
-    public float HeadScale { get; init; } = 0.8f;
+    public float HeadScale { get; init; } = 1f;
+
+    /// <summary>腕の長さ方向の倍率（基準の体 <see cref="StandardHalfExtents"/> の腕に対して。調べ物用、既定は 1。2026-11-27 まで Aigis の既定の腕に掛ける 1.18）。</summary>
+    public float ArmLengthScale { get; init; } = 1f;
 
     /// <summary>
-    /// 腕の長さ方向の倍率。腕の届く長さ（肩 → 肘 → 拳）を以前と同じ約 0.19m に保つ値。
-    /// 以前は関節の重なり代が 3cm 固定で腕を大きく削っていたので 1.4 で補っていた。重なり代を体の縮尺に合わせた（<see cref="JointOverlap"/>）ので 1.18。
+    /// 基準の体（比 1・<see cref="Scale"/> 1）の部位の箱の半分の寸法 [m]（2026-11-27、docs/plans/BASE_BODY_PLAN.md §2）: 身長 175 cm・体重 ≈ 75 kg（BMI 24.5）の
+    /// 実物のボクサーの比。長さは人体計測の平均（成人男性、身長に対する比: 頭 0.13・膝の高さ 0.28・股関節の高さ 0.52・上腕 0.19・前腕 0.15・足 0.15）、
+    /// 太さ（X・Z）は、ボクセルで実測した部位の質量（<see cref="Masses"/>）が実物の質量の配分（de Leva 1996: 頭 ≈ 6%・胴 ≈ 44%・上腕 2.7%・前腕 1.6%・
+    /// もも 14%・すね 4.3%・足 1.4%）に近くなる値（ローポリの形は箱の 5〜6 割を埋める）。肩の半幅 0.195 m（肩幅 ≈ 0.23 × 身長）・胴の厚み 0.234・腰の幅 0.34。
+    /// 足の長さ 27 cm はかかと側とつま先の和（つま先は <see cref="FootGeometry.ToeShare"/>）。
+    /// 2026-11-27 までは Aigis の既定の体（<see cref="HumanoidRagdoll.HalfExtents.Default"/>）に頭 × 0.8・腕の長さ × 1.18 を掛けた 145 cm の体で、
+    /// 質量は部位の体積の比から別に出していた（BMI 32 相当の太さ）。
     /// </summary>
-    public float ArmLengthScale { get; init; } = 1.18f;
+    public static HumanoidRagdoll.HalfExtents StandardHalfExtents { get; } = HumanoidRagdoll.HalfExtents.Default with
+    {
+        // 段 1（体重の実測）の間は前の 145 cm の体（Aigis の既定 × 頭 0.8・腕の長さ 1.18）のまま。段 2 で 175 cm の表へ。
+        Head = HumanoidRagdoll.HalfExtents.Default.Head * 0.8f,
+        UpperArm = HumanoidRagdoll.HalfExtents.Default.UpperArm * new Vector3(1.18f, 1f, 1f),
+        Forearm = HumanoidRagdoll.HalfExtents.Default.Forearm * new Vector3(1.18f, 1f, 1f),
+    };
 
     /// <summary>
     /// 関節の重なり代 [m]: 子の部位の箱が、関節から親の側へはみ出す長さ。Aigis の既定（3cm）は 1.7m の体用で、60cm の体では
@@ -1010,7 +1024,7 @@ public sealed record FighterTuning
     {
         get
         {
-            var d = HumanoidRagdoll.HalfExtents.Default;
+            var d = StandardHalfExtents;
             var h = new HumanoidRagdoll.HalfExtents(
                 d.Pelvis * Scale, d.Chest * Scale, d.Head * (Scale * HeadScale),
                 d.UpperArm * Scale * new Vector3(ArmLengthScale, 1f, 1f), d.Forearm * Scale * new Vector3(ArmLengthScale, 1f, 1f),
@@ -1022,29 +1036,28 @@ public sealed record FighterTuning
         }
     }
 
+    /// <summary>
+    /// 部位ごとの剛体の質量 [kg]: ボクセルの実測（材質ごとのセルの数 × 実物の密度 × セルの体積、<see cref="Voxels.BodyMassTable"/>）。
+    /// 生成した体はボクセルを作ったあと、その体の格子を数え直した質量と慣性に入れ直す（<see cref="Voxels.BoxerBody"/>）。足はかかと側（つま先は <see cref="ToeMass"/>）。
+    /// 2026-11-27 まで部位の質量は Aigis の既定（骨盤 10・胸 20・頭 5…）× 部位の体積の比で、ボクセルの中身と別の値だった（docs/DEBT.md「キャラクター」(1)）。
+    /// </summary>
     [JsonIgnore]
     public HumanoidRagdoll.MassDistribution Masses
     {
         get
         {
-            var m = HumanoidRagdoll.MassDistribution.Default;
-            // 質量は部位の体積（寸法の積）に比例させる: 体格を変えても密度は同じ（基準体格では 1 倍で、従来の値のまま）。
-            var build = Build.Validate();
-            float V(BodyPartKind kind)
-            {
-                var s = build.ScaleOf(kind);
-                return s.X * s.Y * s.Z;
-            }
-
-            return m with
-            {
-                Pelvis = m.Pelvis * MassScale * V(BodyPartKind.Pelvis), Chest = m.Chest * MassScale * V(BodyPartKind.Chest), Head = m.Head * MassScale * V(BodyPartKind.Head),
-                UpperArm = m.UpperArm * MassScale * V(BodyPartKind.UpperArm), Forearm = m.Forearm * MassScale * V(BodyPartKind.Forearm), Thigh = m.Thigh * MassScale * V(BodyPartKind.Thigh),
-                Shin = m.Shin * MassScale * V(BodyPartKind.Shin), Foot = m.Foot * MassScale * V(BodyPartKind.Foot) * (1f - FootGeometry.ToeShare), // かかと側（残りはつま先）
-            };
+            var h = HalfExtents;
+            float M(BodyPartKind kind, Vector3 half) => Voxels.BodyMassTable.MassOf(this, kind, half) * MassScale;
+            return new HumanoidRagdoll.MassDistribution(
+                Pelvis: M(BodyPartKind.Pelvis, h.Pelvis), Chest: M(BodyPartKind.Chest, h.Chest), Head: M(BodyPartKind.Head, h.Head),
+                UpperArm: M(BodyPartKind.UpperArm, h.UpperArm), Forearm: M(BodyPartKind.Forearm, h.Forearm), Thigh: M(BodyPartKind.Thigh, h.Thigh),
+                Shin: M(BodyPartKind.Shin, h.Shin), Foot: M(BodyPartKind.Foot, h.Foot));
         }
     }
 
+    /// <summary>つま先 1 つの質量 [kg]（ボクセルの実測、<see cref="Masses"/> と同じ）。</summary>
+    [JsonIgnore]
+    public float ToeMass => Voxels.BodyMassTable.MassOf(this, BodyPartKind.Toe, FootGeometry.ToeHalf(HalfExtents.Foot, Build.FourLegged)) * MassScale;
 
     /// <summary>従来の体（一体の胴・腕と体を世界から直接動かす）。比べもの・古い記録の再生用。標準は <see cref="Default"/>（分割胴、2026-11-22 に制式採用）。</summary>
     public static FighterTuning Legacy { get; } = new();
