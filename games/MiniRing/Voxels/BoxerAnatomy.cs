@@ -333,9 +333,14 @@ public static class BoxerAnatomy
         return WithJointEnds(kind, grid);
     }
 
+    /// <summary>取り除く「離れて残ったセル」の大きさの上限（セル数）。</summary>
+    private const int StrayCellLimit = 2;
+
     /// <summary>
-    /// 作った（顔の彫り直しまで終えた）格子で、いちばん大きいつながりに 6 近傍でつながらないセル（外形のメッシュのくびれや鼻の出っ張りで、1〜2 セルだけ離れて残った骨・肉）を取り除く。
-    /// 残すと最初の歩で黙って破片に分かれる（基準の体の頭: 前の顔の出っ張りに骨 1 セル）。つながっていれば何もしない。
+    /// 顔の層へ出した後の頭の格子で、いちばん大きいつながりに 6 近傍でつながらない 1〜2 セルを取り除く（骨・肉・皮膚）。残すと最初の歩で黙って破片に分かれ、
+    /// その破片が頭の <c>BodyId</c>（顔の層と同じ剛体）を「断たれた部位」にして、頭と顔の層の再生が全部止まった（OrgHealing）。
+    /// 首の隙間を埋める <see cref="JointBridge"/> は頭の下の縁の皮膚のセルを使うので、離れた皮膚のセルを外すと隙間のセルの数が、親のまわりの有り無しで食い違う
+    /// （JointBridgeTests.TheNeckGap: 30 対 22。隙間の埋め方が頭の縁の細かいセルに敏感な別件で、BASE_BODY_PLAN §10.6）。つながっていれば何もしない。
     /// </summary>
     internal static void DropStrayCells(VoxelGrid grid)
     {
@@ -347,7 +352,7 @@ public static class BoxerAnatomy
         var parts = grid.ConnectedComponents();
         var main = parts.OrderByDescending(p => p.Length).First();
         var removed = new List<RemovedVoxel>();
-        foreach (var part in parts.Where(p => !ReferenceEquals(p, main)))
+        foreach (var part in parts.Where(p => !ReferenceEquals(p, main) && p.Length <= StrayCellLimit))
         {
             foreach (var i in part)
             {
