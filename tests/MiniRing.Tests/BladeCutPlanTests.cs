@@ -8,6 +8,7 @@ using MiniRing.Weapons;
 namespace MiniRing.Tests;
 
 [TestClass]
+[TestCategory("slow")]
 public sealed class BladeCutPlanTests
 {
     private static readonly BladeArm Right = new(new Vector3(-0.2f, 0, 0), 0.05f, 0.75f);
