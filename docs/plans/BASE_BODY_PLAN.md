@@ -339,3 +339,33 @@ Aigis の既定の体 × 頭 0.8・腕の長さ 1.18（145 cm）をやめ、Mini
 ### 9.10 止めた所（2026-11-27、文脈の残りが少ないのでここで止めて引き継ぐ）
 
 全テスト（tower32・12 並び、6edb6219）: 1629 件中 **39 件**失敗（土台 a4783fb7 は 14 件）。土台と共通 6 件（`SwordOneBlowTests` jin・konrad、`PunchWeightTests`、`KneeControlTests`、`RoundRulesTests`、`BladeTipTests`）、新しく落ちる物 33 件。段 4 のあとの 42 件から、段 5 の握りの間隔で 4 件（`SlideGripTests` 2・`BatFormsTests`・`BojutsuTests.TheStaffGrips…`）が通り、`TonfaTests.ASwordSweepingAtTheGuard…` が新しく落ちた（A の枝の取り込みか握りの間隔の影響か未確認）。残りの分け方と順は 9.8 のまま。0 件落ちにはなっていない。
+
+## 10. 続き（2026-11-27、5 人目の作業者。利用量が残り少ないので統合役の指示で WIP で止めた）
+
+土台 `claude/agitated-mclaren-7c56ab` を f0648f05 まで取り込んだ。
+
+### 10.1 やったこと
+
+1. **腰のテスト**: `PunchWeightTests.StrongerHipRotators_SpinThePelvisFaster_OnlyThePelvisIsChecked`（骨盤の回旋筋 0.4・1.0・1.6 倍で骨盤の最大の角速度が単調に増える、だけ）。DEBT.md に「腰の回りが拳に乗らない（master から）」（HipSweep の数字）、CLAUDE.md §8 に名前。
+2. **届く間合い**（LogicVersion 76 仮、VERSIONS.md に記載）: `Bots.ReachGap`（両肩それぞれから相手のあごまでの**水平な**距離の平均）。`FighterSense` に `SelfBody`・`SelfChin`。BoxerBot の拳の間合い・RangeSense・EvadeReach・OpponentRead が同じ物差し。蹴り・肘は胸と胸のまま（ドリルの値）。戦略の表は今の「届く ÷ 胸と胸」で直す。値は前の体で測った対応で移した（`ReachRangeProbe`: 胸と胸 c → 0.9703 c − 0.0130、前の間合いの層 t → 0.9879 t − 0.0580。スタイル JSON・名簿 10 人・ivf.json の生成の幅・BotCatalog・ドリル）。3 次元で測った版は倒れた体が起き上がれず（DamageModel・HeelStomp・GroundStrike・DownStir・LegLoss が落ちた）、水平にして直った。
+   - 測った結果: 胸と胸に対する肩→あごの対応は前の体と新しい体でほぼ同じ（差 0.01 腕未満）。**統合役の前提「あごが遠くなった」は間合いの物差しの違いではない**（構えたグローブ→あごの差は構えの手の位置、右ストレートの当たりの差は右肩の横の広がりとグローブの比 0.116 対 0.128 腕）。
+   - 試合の右の拳（`BoutCrossProbe`、champion 対 swarmer、種 1〜12・60 秒）: 新しい体 27 発 4.63 m/s・27.9 J、土台（145 cm）48 発 3.74 m/s・20.1 J。速さ・エネルギーは土台以上（当たる数は少ない）。
+3. **両手の型**: `MotionImitation.FitBack`（型を書いた体の肩 0.283 腕から各手までの距離を、今の体の肩から同じ距離になる深さを求め、足りない分だけ両手をそろって後ろへ。武器の向き・握りの間隔は保つ）。`ToCommand` が全部の型に使う。棒の握りを肩幅 0.40 m（`StaffHandSpacing`、`StaffForms.Spacing` 0.6885）。WeaponGrasp 3 件・Tonfa・Bojutsu（突きの前の端・受けの後ろの端・肩幅）が通るようになった。両手の真ん中を保って間隔だけ変える案（FromKeys の authoredSpacing）は SlideGrip・突きを壊したので戻した。
+   - テストの直し: Bojutsu の後ろの打つ所を m で（0.20 + 0.845 m）、型の手の届きを FitBack の後に今の肩から測り上限 0.95→0.97（握りを広げて下の手が 0.10 腕遠い、横打ち 0.963）、SlideGrip の左手を下げる量を同じ棒の上の点へ・片手の垂れの上限をてこの比で広げた。**この 3 つの SlideGrip/Bojutsu の直しは tower32 で未確認**。
+4. **計量・体重の範囲（§9.9 の 2 件）**: 計量は `CharacterProfile.ScaleWeightOf`（0.1 kg の目盛り）で `Organization.DivisionOf(float)` と比べる。`BodySizing.Solve`/減量はその目盛りでちょうど目標の kg になる太さを解く。MakerServer の体重・身長の幅を `CharacterMaker.Range`（キャンペーンと同じ）に。**全テスト未確認**（名簿・新人のファイルの太さは解き直していない: 計量で階級が変わる人がいれば OrgTests・CircuitTests が落ちる）。
+5. **始めの深いしゃがみ**（未解決）: `StartCrouchProbe.DropVariants`。ボット同士・コーナーから・種 4〜6 で骨盤の最低 0.49〜0.64（両者。master 0.73）。3.3〜3.6 s に頭の指令 −0.56 腕（守りは None = 頭の動き）で沈み、踏み出し（move 0.7〜1.0）の間にさらに沈む。ホバーの力を抜く幅・ブレーキ・股の引きを変えても変わらない → 足運び（ApplyGait、`height = 1 + crouch …`）の脚の側の疑い。
+
+### 10.2 テスト（tower32）
+
+- 取り込み直後（b4b44b9f）: 1629 件中 37 件失敗。
+- 最後のコミットの全テストは**走らせたが結果を待たずに止めた**。最後に確かめた対象の組（武器・倒れた体・新人・守り、176 件）では 7 件失敗: ClubGrip（握りで手のセルが 3 つ潰れる）、Bojutsu の型の届き（→ 0.97 に直した、未確認）、SlideGrip 2（直した、未確認）、WeaponGrasp.Releasing（添え直す左手が柄に届かない）、SwordTests.AHeldSword（自傷 32 セル > 7）、HeelStomp.HeelControl（5.3 cm > 5 cm）。
+- ほかに 37 件の中で手を付けていない物: BladeTip・SwordOneBlow jin/konrad/edgar（当たりの速さが 0.0 m/s と出る: 測りの壊れの疑い、土台と共通）・KneeControl（土台と共通）・ClawHold 2・ClawTrajectory・VoxelSplit・Landmark・CharacterTests.FaceTemplates・JointBridge・BodyAndMatch.Regenerate・OrgHealing・CornerClearance・JointPunchSeries 2・NeckMuscle・BodyAndMatch.ALiverShot・TrunkTwist・HybridMatch(1)・WvcSlip・StaminaTempo・StaminaBudget。
+
+### 10.3 次にやること
+
+1. tower32 で全テストを回し、上の未確認を確かめる（新人・名簿の計量で階級が変わる人がいれば、その太さを `BodySizing.Reshape` で解き直す）。
+2. 始めのしゃがみ（ApplyGait の沈みの式・踏み出しの間の脚）。
+3. 残りの失敗を 1 件ずつ（§9.8 の分け方）。起き上がり（種 8）・あごへの 1 発・剣の一撃の測り。
+4. 動画: 右ストレートの並べ比べ（`hipcompare`）と基準の体の試合（立つ・歩く・打つ・倒れる・起き上がる）、キャラ選択の名簿の全身の画面写真。どれも未着手。
+5. ElbowSpec.ShoulderHalfWidth 0.283 は前の体の値のまま（肘の経路）。`ReachGap` の肩幅の式で置くか検討。
+6. 調べのプローブ: `ReachRangeProbe`・`BoutCrossProbe`（土台との比べは土台の枝の作業ツリーへ写して回す）。
