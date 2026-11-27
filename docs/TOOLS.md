@@ -88,3 +88,11 @@ blender --background Galva-Attacks-Stable-Edge.blend --python-exit-code 1 --pyth
 `--point X Y Z` はアーマチュア座標の刃先目標 [m]、`--direction X Y Z` は目標での進行方向、`--normal X Y Z` は切断面の法線。`--radius` で円弧の半径、`--rake` で刃の弦と半径のなす角を指定する。各関節の角速度上限 [deg/s] は `--rates` に肩の X・Y・Z、前腕のねじり、肘の屈伸、手首の順で渡す。`--runup` と `--follow` は目標前後の弧長 [m]、`--acceleration` は円弧に沿った加減速の上限 [m/s²]。これらはアニメーション用の設定値。
 
 刃先の位置と刃面から肘の候補を幾何式で列挙し、ヤコビアンから各候補の速度上限を求める。円弧の全区間で可動域に収まる候補のうち、指定の助走と減速で目標を最も速く通過するものを `06 Analytic Target Sweep` に保存する。
+
+同じ目標で腹（`Thorax`）と胸（`Chest`）のヨーを加える比較も生成できる。
+
+```powershell
+blender --background Galva-Analytic-Target-Cut.blend --python-exit-code 1 --python tools/galva_analytic_trunk_cut.py -- --output Galva-Analytic-Trunk-Cut.blend
+```
+
+両関節のひねり方を探索し、各候補について円弧全体の腕の可動域、角速度、足先の接地を確認する。腹と胸のヨーの上限はそれぞれ ±24°・±35°、角速度上限は 160°/s・200°/s。元の右鎌アクションと比較用の `07 Analytic Trunk Sweep` を出力ファイルの同じリグに収録する。

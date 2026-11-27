@@ -275,6 +275,8 @@ def bake(scene, rig, args):
     action["radius_m"] = args.radius
     action["rake_deg"] = args.rake
     action["path_acceleration_m_s2"] = args.acceleration
+    action["runup_m"] = args.runup
+    action["follow_m"] = args.follow
     action["local_max_m_s"] = float(local_max)
     action["contact_m_s"] = float(attained)
     action["rate_limits_deg_s"] = args.rates
