@@ -93,7 +93,7 @@ public sealed class CampaignTests
     public void IvfWeighIn_OverTheDivisionLimit_IsDisqualifiedWithTheReason()
     {
         var ev = Ivf("rookie", "lightheavy");
-        var limit = ev.Division.LimitKg!.Value;
+        var limit = ev.Division.MaxWholeKg!.Value;
         var at = CampaignLadder.Check(ev, NewBoxer(limit), CharacterRoster.All);
         Assert.IsNull(at.Reason, at.Reason);
         Assert.AreEqual("lightheavy", at.Entry!.Division.Id);
@@ -188,7 +188,7 @@ public sealed class CampaignTests
         Assert.IsNull(boxer.Career.SeatIn("ivf", heavier.Id), "other divisions keep their own ranking");
 
         // 増量して上の階級へ行くと、そこはランキング外から（タイトルには出られない）。元の階級の王座は前日計量で失格。
-        var up = boxer.ChangeWeight(heavier.LimitKg!.Value);
+        var up = boxer.ChangeWeight(heavier.MaxWholeKg!.Value);
         StringAssert.Contains(CampaignLadder.Check(Ivf("title", heavier.Id), up, CharacterRoster.All).Reason, "ランキング外");
         StringAssert.Contains(CampaignLadder.Check(Ivf("title", middle.Id), up, CharacterRoster.All).Reason, "失格");
     }

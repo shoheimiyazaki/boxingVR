@@ -18,7 +18,10 @@ public sealed partial class PhysicsWorld
     /// is built as a one-child compound, and the inertia is taken about the origin (parallel axis included). Pose and
     /// velocity are kept. The previous shape is released.</para>
     /// </summary>
-    public void ReshapeDynamicBox(int id, Vector3 localCenter, Vector3 halfExtents, float mass)
+    /// <remarks><paramref name="inertiaDiagonal"/>: the principal moments about the body's origin along its local axes (kg·m²), when
+    /// the caller knows the mass distribution inside the box better than a uniform box (voxel cells of different materials).
+    /// Null: the uniform box's inertia, as before.</remarks>
+    public void ReshapeDynamicBox(int id, Vector3 localCenter, Vector3 halfExtents, float mass, Vector3? inertiaDiagonal = null)
     {
         ThrowIfDisposed();
         if (!_masses.TryGetValue(id, out var current) || current <= 0f)
@@ -58,6 +61,11 @@ public sealed partial class PhysicsWorld
             shape = _simulation.Shapes.Add(new Compound(children));
         }
 
+        if (inertiaDiagonal is { } diagonal)
+        {
+            inertia = DiagonalInertia(mass, diagonal);
+        }
+
         var body = _simulation.Bodies[new BodyHandle(id)];
         var old = body.Collidable.Shape;
         body.SetShape(shape);
@@ -69,6 +77,46 @@ public sealed partial class PhysicsWorld
             ? new BodyShape(ShapeKind.Box, halfExtents)
             : new BodyShape(ShapeKind.Compound, Vector3.Abs(localCenter) + halfExtents);
         _lastDynamicInertia[id] = (mass, inertia);
+    }
+
+    /// <summary>
+    /// Sets a dynamic body's mass and its principal moments of inertia (about the body's origin, along its local axes) without
+    /// touching its collider: for a body whose mass is counted from what it is made of (voxel cells of different densities)
+    /// rather than spread uniformly through its collision box. Pose and velocity are kept.
+    /// </summary>
+    public void SetDynamicMass(int id, float mass, Vector3 inertiaDiagonal)
+    {
+        ThrowIfDisposed();
+        if (!_masses.TryGetValue(id, out var current) || current <= 0f)
+        {
+            throw new ArgumentException("Body must be a live dynamic body.", nameof(id));
+        }
+
+        var inertia = DiagonalInertia(mass, inertiaDiagonal);
+        var body = _simulation.Bodies[new BodyHandle(id)];
+        body.LocalInertia = inertia;
+        body.Awake = true;
+        _masses[id] = mass;
+        _lastDynamicInertia[id] = (mass, inertia);
+    }
+
+    private static BodyInertia DiagonalInertia(float mass, Vector3 diagonal)
+    {
+        if (!(mass > 0f) || !float.IsFinite(mass))
+        {
+            throw new ArgumentOutOfRangeException(nameof(mass), mass, "A dynamic body needs a positive, finite mass.");
+        }
+
+        if (!(diagonal.X > 0f && diagonal.Y > 0f && diagonal.Z > 0f) || !float.IsFinite(diagonal.X + diagonal.Y + diagonal.Z))
+        {
+            throw new ArgumentOutOfRangeException(nameof(diagonal), diagonal, "Principal moments must be positive and finite.");
+        }
+
+        return new BodyInertia
+        {
+            InverseMass = 1f / mass,
+            InverseInertiaTensor = new BepuUtilities.Symmetric3x3 { XX = 1f / diagonal.X, YY = 1f / diagonal.Y, ZZ = 1f / diagonal.Z },
+        };
     }
 
     /// <summary>

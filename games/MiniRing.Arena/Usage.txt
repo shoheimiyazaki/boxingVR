@@ -111,6 +111,7 @@
   mocap [--bvh] [--out] [--from] [--to] [--speed] [--width] [--height] [--fps] [--strikes]
   intentvideo [--script] [--blue] [--seed] [--seconds] [--width] [--height] [--out]
   motioncard [--scene jab|bout|sword|kick|claw|replay] [--style] [--weapon] [--form] [--kick] [--body] [--victim] [--rear] [--opponent] [--aim] [--gap] [--hand] [--red] [--blue] [--red-char] [--blue-char] [--who] [--seed] [--seconds] [--replay] [--char] [--tune textbook|trained] [--from] [--to] [--hit] [--out] [--card] [--audit-cards] [--every]   動きの 1 枚（3 面の残像と軌跡・時系列・動きの言葉。docs/plans/MOTION_TOOLS_PLAN.md）
+  hipcompare [<ラベル>] [<出力フォルダ>] [<間合い: 腕の長さ倍 | chin>]   腰の比べ: 同じ右ストレートを強い腰・弱い腰で、横と上から撮る（胸と骨盤の向きの線つき、BASE_BODY_PLAN）
   motionaudit （motioncard と同じ引数）   不自然な瞬間（引っかかり・滑り・関節の隙間・震え・支えの外…）の一覧と、その瞬間ごとの絵
   motionhuman [--dir data/mocap/kyokushin] [--out …human_ranges.json] [--export <名前>]   人の蹴りの計測を同じ式で測った幅（躍度・連鎖の順・足の滑り）。--export で手本の記録
   recordbout [--red] [--blue] [--seconds] [--seed] [--tv] [--out]

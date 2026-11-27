@@ -31,9 +31,9 @@ public sealed class HandShapeDumpProbe
 
         DumpWorn(dir);
         var tuning = new FighterTuning();
-        var forearm = Aigis.Physics.HumanoidRagdoll.HalfExtents.Default.Forearm * tuning.Scale;
+        var forearm = tuning.HalfExtents.Forearm;
         File.WriteAllText(Path.Combine(dir, "forearm.txt"), string.Create(CultureInfo.InvariantCulture,
-            $"{forearm.X * 2f * tuning.ArmLengthScale},{forearm.Y * 2f},{forearm.Z * 2f},{HandSkeleton.Wrist.X},{HandSkeleton.Wrist.Y}"));
+            $"{forearm.X * 2f},{forearm.Y * 2f},{forearm.Z * 2f},{HandSkeleton.Wrist.X},{HandSkeleton.Wrist.Y}"));
         Console.WriteLine($"dumped to {dir}");
     }
 

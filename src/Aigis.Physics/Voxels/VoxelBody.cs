@@ -45,14 +45,21 @@ public sealed class VoxelBody
     private readonly PhysicsWorld _world;
     private readonly float _massPerCell;
     private readonly bool _materialMass;
+    private float _densityScale = 1f;
+    private Vector3 _appliedInertia;
     private (Vector3 Center, Vector3 Half, float Mass) _applied;
     private readonly List<VoxelBody> _companions = [];
     private VoxelBody? _owner;
 
     /// <summary>The body must have been built as a box that matches the grid: <paramref name="grid"/>'s half extents,
     /// centred at <paramref name="gridCenterLocal"/>. <paramref name="massPerCell"/> (null: the body's mass shared by the grid's cells)
-    /// is the mass of one cell, for a body whose mass is shared with grids laid over it later (<see cref="AddCompanion"/>).</summary>
-    public VoxelBody(PhysicsWorld world, int bodyId, VoxelGrid grid, Vector3 gridCenterLocal = default, bool materialMass = false, float? massPerCell = null)
+    /// is the mass of one cell, for a body whose mass is shared with grids laid over it later (<see cref="AddCompanion"/>).
+    /// <paramref name="materialMass"/>: the mass (and the inertia) is counted from the cells' materials (density × cell volume). With
+    /// <paramref name="fitNow"/> false such a body keeps its collider and mass until <see cref="FitMassToCells"/> or the next change
+    /// (a body whose companions are added first).</summary>
+    /// <remarks><paramref name="densityScale"/>: multiplies every material's density in material mode (a caller's whole-body mass scale).</remarks>
+    public VoxelBody(PhysicsWorld world, int bodyId, VoxelGrid grid, Vector3 gridCenterLocal = default, bool materialMass = false, float? massPerCell = null, bool fitNow = true,
+        float densityScale = 1f)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(grid);
@@ -65,10 +72,64 @@ public sealed class VoxelBody
         _massPerCell = massPerCell ?? (mass / cells);
         _applied = (gridCenterLocal, grid.HalfExtents, mass);
         _materialMass = materialMass;
-        if (materialMass)
+        _densityScale = densityScale > 0f && float.IsFinite(densityScale) ? densityScale : throw new ArgumentOutOfRangeException(nameof(densityScale));
+        if (materialMass && fitNow)
         {
             UpdateMass();
         }
+    }
+
+    /// <summary>
+    /// Sets the rigid body's mass and principal moments of inertia from the cells of this grid and its companions (density × cell
+    /// volume, moments about the body's origin), keeping the collider as it is. Only for a body that counts its mass from materials.
+    /// </summary>
+    public void FitMassToCells()
+    {
+        if (!_materialMass || _owner is not null || Massless)
+        {
+            throw new InvalidOperationException("Only the owner of a body that counts its mass from its materials can fit its mass to its cells.");
+        }
+
+        var (mass, inertia) = MassAndInertia();
+        _world.SetDynamicMass(BodyId, mass, inertia);
+        _applied = (_applied.Center, _applied.Half, mass);
+        _appliedInertia = inertia;
+    }
+
+    /// <summary>The mass of this grid and its companions and their principal moments about the body's origin (material mode).</summary>
+    private (float Mass, Vector3 Inertia) MassAndInertia()
+    {
+        var mass = 0f;
+        var inertia = Vector3.Zero;
+        for (var k = -1; k < _companions.Count; k++)
+        {
+            var body = k < 0 ? this : _companions[k];
+            var grid = body.Grid;
+            var cell = grid.CellSize;
+            var volume = cell.X * cell.Y * cell.Z;
+            // 1 つのセル（直方体）の自分の重心まわりの慣性: m (b² + c²) / 12。
+            var own = new Vector3((cell.Y * cell.Y) + (cell.Z * cell.Z), (cell.X * cell.X) + (cell.Z * cell.Z), (cell.X * cell.X) + (cell.Y * cell.Y)) / 12f;
+            for (var i = 0; i < grid.CellCount; i++)
+            {
+                var material = grid.MaterialAt(i);
+                if (material == 0)
+                {
+                    continue;
+                }
+
+                var m = grid.Palette[material].MechanicsOrDefault.Density * _densityScale * volume;
+                var (x, y, z) = grid.Coordinates(i);
+                var p = body.GridCenterLocal + ((new Vector3(x + 0.5f, y + 0.5f, z + 0.5f) * cell) - grid.HalfExtents);
+                var sq = p * p;
+                inertia += m * (own + new Vector3(sq.Y + sq.Z, sq.X + sq.Z, sq.X + sq.Y));
+                mass += m;
+            }
+        }
+
+        mass = MathF.Max(1e-4f, mass);
+        // 空になった格子でも正の慣性（小さな箱 1 つぶん）を保つ。
+        var floor = mass * 1e-6f;
+        return (mass, Vector3.Max(inertia, new Vector3(floor)));
     }
 
     private VoxelBody(PhysicsWorld world, int bodyId, VoxelGrid grid, Vector3 gridCenterLocal, float massPerCell, bool materialMass)
@@ -128,7 +189,7 @@ public sealed class VoxelBody
             throw new InvalidOperationException("A companion grid cannot carry companions of its own.");
         }
 
-        var companion = new VoxelBody(_world, BodyId, grid, gridCenterLocal, massPerCell ?? _massPerCell, _materialMass) { _owner = this };
+        var companion = new VoxelBody(_world, BodyId, grid, gridCenterLocal, massPerCell ?? _massPerCell, _materialMass) { _owner = this, _densityScale = _densityScale };
         _companions.Add(companion);
         if (refit)
         {
@@ -596,7 +657,7 @@ public sealed class VoxelBody
         _world.CopyCollisionFilter(BodyId, id);
         _world.SetLinearVelocity(id, s.LinearVelocity + Vector3.Cross(s.AngularVelocity, pieceWorld - s.Position));
         _world.SetAngularVelocity(id, s.AngularVelocity);
-        var fragment = new VoxelBody(_world, id, grid, _massPerCell, _materialMass);
+        var fragment = new VoxelBody(_world, id, grid, _massPerCell, _materialMass) { _densityScale = _densityScale };
         fragment.UpdateMass();
         UpdateMass();
         return fragment;
@@ -619,28 +680,49 @@ public sealed class VoxelBody
             return;
         }
 
-        var (wantCenter, half, mass) = _companions.Count == 0 ? Fit(this) : FitAll();
+        var (wantCenter, half, mass) = _companions.Count == 0 ? Fit(this, !_materialMass) : FitAll(!_materialMass);
+        Vector3? inertia = null;
+        if (_materialMass)
+        {
+            (mass, var counted) = MassAndInertia();
+            inertia = counted;
+        }
+
         // Only rebuild the collider when it actually changes (the rebuild is not free): a crater that does not move the
         // bounding box changes only the mass, and a small change in mass is not worth a rebuild either.
         var sameShape = Vector3.DistanceSquared(_applied.Center, wantCenter) < 1e-10f && Vector3.DistanceSquared(_applied.Half, half) < 1e-10f;
-        if (sameShape && MathF.Abs(_applied.Mass - mass) <= (_materialMass ? 1e-6f : 0.02f) * _applied.Mass)
+        if (sameShape && inertia is { } moments)
+        {
+            // 材質から数える体: 箱が同じなら当たりの形は作り直さず、質量と慣性だけ入れ直す（削れ・中の格子の移動で慣性も変わる）。
+            if (mass != _applied.Mass || moments != _appliedInertia)
+            {
+                _world.SetDynamicMass(BodyId, mass, moments);
+                _applied = (_applied.Center, _applied.Half, mass);
+                _appliedInertia = moments;
+            }
+
+            return;
+        }
+
+        if (sameShape && MathF.Abs(_applied.Mass - mass) <= 0.02f * _applied.Mass)
         {
             return;
         }
 
-        _world.ReshapeDynamicBox(BodyId, wantCenter, half, mass);
+        _world.ReshapeDynamicBox(BodyId, wantCenter, half, mass, inertia);
         _applied = (wantCenter, half, mass);
+        _appliedInertia = inertia ?? default;
     }
 
     /// <summary>The collider box (body-frame centre and half extents) and mass that fit one grid's body alone.</summary>
-    private static (Vector3 Center, Vector3 Half, float Mass) Fit(VoxelBody body)
+    private static (Vector3 Center, Vector3 Half, float Mass) Fit(VoxelBody body, bool withMass = true)
     {
         var (center, half) = body.Grid.OccupiedBounds() ?? (Vector3.Zero, body.Grid.CellSize * 0.5f);
-        return (body.GridCenterLocal + center, half, body.MassOf(body.Grid));
+        return (body.GridCenterLocal + center, half, withMass ? body.MassOf(body.Grid) : 0f);
     }
 
     /// <summary>The box that covers the cells of this grid and every companion (empty grids add nothing), and the sum of their masses.</summary>
-    private (Vector3 Center, Vector3 Half, float Mass) FitAll()
+    private (Vector3 Center, Vector3 Half, float Mass) FitAll(bool withMass = true)
     {
         var min = new Vector3(float.PositiveInfinity);
         var max = new Vector3(float.NegativeInfinity);
@@ -649,7 +731,7 @@ public sealed class VoxelBody
         for (var i = -1; i < _companions.Count; i++)
         {
             var body = i < 0 ? this : _companions[i];
-            mass += body.MassOf(body.Grid);
+            mass += withMass ? body.MassOf(body.Grid) : 0f;
             if (body.Grid.OccupiedBounds() is { } bounds)
             {
                 any = true;
@@ -680,7 +762,7 @@ public sealed class VoxelBody
         {
             if (grid.MaterialAt(i) != 0)
             {
-                mass += grid.Palette[grid.MaterialAt(i)].MechanicsOrDefault.Density * volume;
+                mass += grid.Palette[grid.MaterialAt(i)].MechanicsOrDefault.Density * _densityScale * volume;
             }
         }
         return MathF.Max(1e-4f, mass);

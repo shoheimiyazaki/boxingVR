@@ -59,6 +59,12 @@ public sealed record CharacterProfile
     /// <summary>見えている体の体重 [kg]: 物理の体の質量（<see cref="BodySizing.PhysicalMassKg"/>、試合の体と同じ）を kg に丸めた値。</summary>
     public static int WeightOf(BodyBuild build) => (int)MathF.Round(BodySizing.PhysicalMassKg(build), MidpointRounding.AwayFromZero);
 
+    /// <summary>
+    /// 計量の体重 [kg]: 物理の体の質量を秤の目盛り（0.1 kg）に丸めた値。階級の上限（ライト級 61.2 kg など、0.1 kg 刻み）と比べるのはこの値
+    /// （2026-11-27 まで kg に丸めた <see cref="WeightOf"/> で比べていて、61.4 kg の体が 61 kg としてライト級に入った。表示の体重は <see cref="WeightOf"/> のまま）。
+    /// </summary>
+    public static float ScaleWeightOf(BodyBuild build) => MathF.Round(BodySizing.PhysicalMassKg(build) * 10f, MidpointRounding.AwayFromZero) / 10f;
+
     /// <summary>中身を確かめる（足りない項目・体と合わない身長と体重・ありえない戦績は例外）。</summary>
     public CharacterProfile Validate(BodyBuild build)
     {

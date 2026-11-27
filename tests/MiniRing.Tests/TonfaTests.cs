@@ -199,7 +199,7 @@ public sealed class TonfaTests
 
     // ── 打つ・受ける ──
 
-    private static readonly float ArmReach = 0.5296f;
+    private static readonly float ArmReach = 0.581f;
 
     /// <summary>
     /// 赤が刀の払い面を繰り返し、青（<paramref name="wear"/> をはめて構えて立つだけ）の頭へ斬りかかる。青の前腕・上腕が失ったセル、
@@ -247,8 +247,10 @@ public sealed class TonfaTests
         // トンファーの前腕が 5 セル切られ（手袋 0、木 231）、小手は手袋の前腕 0・トンファーの前腕 0・木 1 に戻った（SwordAtTheGuard_TechniqueScan_Probe）。
         // 小手面への取り直しは 100 より前の体での測りだったので、master と同じ小手に戻した。期待値は変えていない。
         // 手袋の革のカフが前腕の先を覆うので、手袋の前腕はどの技でも 0〜1 セルで、この比べは「棒の後ろの前腕が手袋より多くは切られない」だけを見ている。
-        var glove = SwordAtTheGuard(HandWear.Glove, 1, "kote");
-        var tonfa = SwordAtTheGuard(HandWear.Tonfa, 1, "kote");
+        // 2026-11-27（基準の体）: 腕の届きを 0.5296 → 0.581（基準の体の腕。型の経路は腕の長さで決まる）にしても、小手は 10 秒に 1 度も当たらない（手袋・トンファーとも切れ 0・木 0）。
+        // 技の一覧（SwordAtTheGuard_TechniqueScan_Probe）から、小手と同じく腕を狙う小手面（kote-men）に取り直した: 手袋の前腕 0・トンファーの前腕 0・木の削れ 20。
+        var glove = SwordAtTheGuard(HandWear.Glove, 1, "kote-men");
+        var tonfa = SwordAtTheGuard(HandWear.Tonfa, 1, "kote-men");
         TestContext.WriteLine($"glove: forearm cut {glove.Forearm}, total cut {glove.Cut}; tonfa: wood lost {tonfa.Wood}, forearm cut {tonfa.Forearm}, total cut {tonfa.Cut}");
         TestContext.WriteLine($"glove: arm (forearm + upper arm) cut {glove.ArmCut}; tonfa: arm cut {tonfa.ArmCut}");
         Assert.IsGreaterThan(0, tonfa.Wood, "the blade bites the stick (wood is carved)");

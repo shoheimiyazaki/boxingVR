@@ -20,7 +20,10 @@ public sealed class JointLayoutTests
         var elbowToInnerEnd = half.Forearm.X - (Vector3.Distance(forearm.Position, f.ShoulderPosition(Hand.Right)) - LengthOfUpperArm(f));
         Console.WriteLine($"forearm half {half.Forearm.X:0.000}, juts behind the elbow {elbowToInnerEnd:0.000} m, reach {f.ArmReach:0.000}");
         Assert.IsLessThan(0.25f * half.Forearm.X, elbowToInnerEnd, "the forearm hardly juts out behind the elbow (was 0.03 m, 60 % of its half-length)");
-        Assert.AreEqual(0.5296f, f.ArmReach, 0.01127f, "the arm still reaches as far as before");
+        // 腕の届く長さは、上腕と前腕の箱の長さから関節の重なり代を 1 つずつ引いた長さ（肩は上腕の体側の端の重なり代の内、肘は上腕の端、拳は前腕の端）。
+        // 関節を箱の端へ寄せても腕は短くならない。2026-11-27 まで 0.5296 m の値を写していた（基準の体を実物の腕へ伸ばして 0.581 m。値でなく式で確かめる）。
+        var reach = (2f * (half.UpperArm.X + half.Forearm.X)) - (2f * FighterTuning.Default.JointOverlap);
+        Assert.AreEqual(reach, f.ArmReach, 0.002f, "the arm reaches the length of its two boxes less the joint overlaps");
 
         // かかとは足首から後ろへ、足の長さの 1/4 ほどまで（人の足の比率）。
         foreach (var foot in new[] { Footwork.Lead, Footwork.Rear })

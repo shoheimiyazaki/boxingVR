@@ -263,7 +263,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 106; // 釣り合いの傾き（作用点が足の外へ出る分だけ加速度と重力の向きへ傾ける）・腰と胴の筋の減衰を 1 歩で止めきる量まで（106）・ガルヴァ: はめた鎌の固めた手首・組織の材質・体を保つ筋に材質の強さ（105）・足の運び（104）: 加速度でずれた床反力の作用点から足の荷重を出し、体重の乗った足・ひねりの軸足を後にして構えへ近づく 1 歩で選ぶ・切り返しで宙の足を計画し直す（104）。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 107; // 基準の体を実物へ（体重と慣性をボクセルの実測から・175 cm の体・筋の置き直し、107、確定、枝 claude/base-body-v2）・釣り合いの傾き（作用点が足の外へ出る分だけ加速度と重力の向きへ傾ける）・腰と胴の筋の減衰を 1 歩で止めきる量まで（106、仮番号）・ガルヴァ: はめた鎌の固めた手首・組織の材質・体を保つ筋に材質の強さ（105）・足の運び（104）: 加速度でずれた床反力の作用点から足の荷重を出し、体重の乗った足・ひねりの軸足を後にして構えへ近づく 1 歩で選ぶ・切り返しで宙の足を計画し直す（104）。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -1828,7 +1828,7 @@ public sealed partial class Fighter
         {
             var s = world.GetState(foot);
             var center = s.Position + Vector3.Transform(FootGeometry.ToeCenterOnHeel(heel, pointed), s.Orientation);
-            var mass = tuning.Masses.Foot / (1f - FootGeometry.ToeShare) * FootGeometry.ToeShare;
+            var mass = tuning.ToeMass;
             var toe = world.AddDynamicBox(center, s.Orientation, toeHalf, mass);
             world.SetName(toe, name + "_" + side + "_toe");
             world.AddHinge(foot, toe, FootGeometry.BallOnHeel(heel, pointed), FootGeometry.BallOnToe(heel, pointed), Vector3.UnitX, Vector3.UnitX, frequency: tuning.ToeHingeHz);
@@ -3458,7 +3458,11 @@ public sealed partial class Fighter
         _uprightIntegral[slot] = (_uprightIntegral[slot] * MathF.Exp(-dt / MathF.Max(1e-3f, _tuning.BalanceIntegralSeconds))) + (error * dt);
         // 腰から打つ体の骨盤: ねじりの力積は骨盤から上の胴全体の慣性で効かせるので、減衰も胴全体の回り（慣性の重みの平均の角速度、UpperBodyAboutPelvis）で見る。
         var hipRoot = UsesHipDrive && body == Parts.Pelvis;
-        var upper = hipRoot ? UpperBodyAboutPelvis(s) : (Inertia: _world.GetLocalInertiaDiagonal(body), Spin: s.AngularVelocity);
+        // 関節の筋で上体を追う体（JointDrive）の骨盤の傾きの保ちも、骨盤が担ぐ上体（腹・胸・頭・腕）の慣性で効かせる: 傾きを起こす力は担ぐ重さに比例する筋の力で、
+        // 骨盤自身の慣性（胸が 1.39 倍・骨盤が 0.88 倍になった基準の体では担ぐ物の 1/50 以下）に比例させると、頭を下げる守り（ダッキング）で上体の重さに負けて
+        // 骨盤が目標より 8° 前へ傾き、胸が倒れる線（66°）を越えた（HybridMatch、BASE_BODY_PLAN §10.8。同じ頭を下げる指令を保つ 1 体で、胸の最大 61° → 50°、立っているだけの胸の傾き 13° → 4°）。
+        var carried = hipRoot || (UsesJointDrive && tiltOnly && body == Parts.Pelvis);
+        var upper = carried ? UpperBodyAboutPelvis(s) : (Inertia: _world.GetLocalInertiaDiagonal(body), Spin: s.AngularVelocity);
         // 傾き（前後・左右）の減衰だけを胴の回りで見る: 胸・頭は骨盤から 0.3〜0.5 m 離れているので、傾きの合成の慣性は骨盤自身の約 50 倍になり、骨盤だけの角速度で
         // 減衰すると 1 歩で回りを反転させて震えた。ひねり（鉛直軸）は骨盤自身の回りのまま: 打つときは腰が胸より先に回る（腰 → 腹 → 胸の波）ので、遅れて付いてくる
         // 胴の平均で減衰すると先に回る腰を止め、腰の強さが拳に乗らなくなった（腰の強い体と弱い体の右ストレートの差 210 対 152 J → 185 対 189 J、PunchWeightTests）。
@@ -3511,6 +3515,7 @@ public sealed partial class Fighter
     /// 骨盤の中心まわりの、骨盤から上の体（脚・足を除く、付いている部位）の合成の慣性 [kg·m²]（骨盤のローカル軸。各部位の慣性は骨盤の軸に揃っているとみなす近似）と、
     /// 胴（骨盤・腹・胸・頭）の回る速さ [rad/s、ワールド]（各部位の角速度を、骨盤まわりの慣性で重みづけた平均 = 角運動量 ÷ 慣性。部位の並進の寄与・腕は除く近似）。
     /// 腰から打つ体で、骨盤へ外からかけるねじりの効き（慣性）と、その減衰が見る回り（速さ）を、それが起こし・回す胴全体に揃える（立つ近道。<see cref="FighterTuning.HipDrive"/>）。
+    /// 関節の筋で追う体（JointDrive）の骨盤の傾きの保ちも、担ぐ上体の慣性で効かせるのにこれを使う（BASE_BODY_PLAN §10.8）。
     /// 減衰を骨盤だけの角速度で見ると、胴全体の慣性 ÷ 骨盤の慣性（約 50 倍）だけ 1 歩の減衰が強すぎて、骨盤が 1 歩ごとに向きを反転して震える
     /// （2026-11-27: 太さ 0.75 で ±39 rad/s・120 Hz。胴の関節の筋の上限がこの震えの減衰で埋まり、上体を起こす分が押し出されて胸が 30° 前へ垂れた）。
     /// </summary>

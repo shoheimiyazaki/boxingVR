@@ -4,20 +4,21 @@
   "org": "ivf",
   "seed": 20261125,
   // 生成の仕組みの版（ProspectFactory の式を変えたら上げる。記録の新人のファイルはハッシュで守られるので、古い新人は作り直さずにファイルのまま使う）。
-  "generatorVersion": 1,
+  // 2: 基準の体を 175 cm・75 kg・体重をボクセルの実測・階級の境を実物にした（2026-11-27）。シーズン 1 の新人（版 1）はファイルのまま。
+  "generatorVersion": 2,
 
-  // 階級ごとの母数と、引く体重の幅 [kg]（IVF の階級の境目の内側。ヘビーの上は名簿のマーカス 125 kg まで）。
+  // 階級ごとの母数と、引く体重の幅 [kg]（IVF の階級の境目 61.2・72.6・79.4・90.7 の内側。ヘビーの上は実物のヘビー級の大きい方 ≈ 120 kg）。
   "divisions": [
-    { "id": "light", "count": 56, "minKg": 56, "maxKg": 64 },
-    { "id": "middle", "count": 56, "minKg": 65, "maxKg": 73 },
-    { "id": "lightheavy", "count": 48, "minKg": 74, "maxKg": 80 },
-    { "id": "cruiser", "count": 40, "minKg": 81, "maxKg": 91 },
-    { "id": "heavy", "count": 40, "minKg": 92, "maxKg": 125 }
+    { "id": "light", "count": 56, "minKg": 57, "maxKg": 61 },
+    { "id": "middle", "count": 56, "minKg": 62, "maxKg": 72 },
+    { "id": "lightheavy", "count": 48, "minKg": 73, "maxKg": 79 },
+    { "id": "cruiser", "count": 40, "minKg": 80, "maxKg": 90 },
+    { "id": "heavy", "count": 40, "minKg": 91, "maxKg": 120 }
   ],
 
   // 体: 身長 [cm] は一様、腕・脚の比は正規（±2σ で切る）。太さ（筋肉）は計量の体重から解き（BodySizing.Solve）、この幅を外れたら身長から引き直す。
-  // 基準の体は 145 cm・68 kg（物理の体の値。docs/CHARACTERS.md）。幅は名簿の 18 人（太さ 0.92〜1.2）を少し広げた。
-  "body": { "minCm": 130, "maxCm": 172, "limbSd": 0.035, "minMuscle": 0.86, "maxMuscle": 1.25 },
+  // 基準の体は 175 cm・75 kg（ボクセルの実測。docs/CHARACTERS.md）。身長は実物のプロボクサーの幅、太さは作れるボクサーの幅（maker.json の boxerRange）。
+  "body": { "minCm": 160, "maxCm": 200, "limbSd": 0.035, "minMuscle": 0.82, "maxMuscle": 1.25 },
   "age": { "min": 18, "max": 26 },
 
   // 教科書（IVF に出られるボクシングの 7 つ）の重み。
@@ -33,7 +34,7 @@
       { "key": "DefenseRate", "min": 0, "max": 0.85 },
       { "key": "CounterRate", "min": 0, "max": 1 },
       { "key": "ExitAfterCombo", "min": 0, "max": 1 },
-      { "key": "AttackRange", "min": 0.75, "max": 1.25 }
+      { "key": "AttackRange", "min": 0.715, "max": 1.199 }
     ],
     "southpaw": 0.15
   },

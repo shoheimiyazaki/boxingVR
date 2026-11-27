@@ -63,10 +63,10 @@ internal sealed class JointBridge
         var half = grid.HalfExtents;
         // 中心は親の格子の線（セルの角）に合わせる: つなぎのセルの中心が、親のセルの中心と重なる。
         var local = anchorOnParent - parent.Body.GridCenterLocal;
-        var snapped = new Vector3(
-            (MathF.Round((local.X + half.X) / cell.X) * cell.X) - half.X,
-            (MathF.Round((local.Y + half.Y) / cell.Y) * cell.Y) - half.Y,
-            (MathF.Round((local.Z + half.Z) / cell.Z) * cell.Z) - half.Z);
+        // 関節の中心がセルの境目のちょうど真ん中に来る（奇数のセル数の格子の中心）と、アンカーの 1e-7 m の揺れで上のセルにも下のセルにも丸まり、同じ体でも
+        // つなぎが 1 セルずれた（胸の奥行き 17 セル: 首のつなぎが 30 対 22 セル。BASE_BODY_PLAN §10.7）。丸める前に 1e-3 セルへ揃えて、揺れで向きが変わらないようにする。
+        static float Snap(float v, float c, float h) => (MathF.Round(MathF.Round((v + h) / c, 3)) * c) - h;
+        var snapped = new Vector3(Snap(local.X, cell.X, half.X), Snap(local.Y, cell.Y, half.Y), Snap(local.Z, cell.Z, half.Z));
         _centerOnParent = snapped + parent.Body.GridCenterLocal;
         var bridgeGrid = new VoxelGrid(grid.Palette, cell * (_cells * 0.5f), (_cells, _cells, _cells), static (_, _) => 0);
         Body = new VoxelBody(parent.Body.World, parent.Body.BodyId, bridgeGrid, _centerOnParent) { Massless = true };

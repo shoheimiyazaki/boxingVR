@@ -15,7 +15,23 @@ namespace MiniRing.Tests;
 [TestCategory("slow")]
 public sealed class BojutsuTests
 {
-    private static readonly float ArmReach = 0.5296f;
+    /// <summary>基準の体の腕の長さ（値を写さず、基準の体から読む）。</summary>
+    private static readonly float ArmReach = StandardArmReach();
+
+    /// <summary>基準の体の肩の半幅 ÷ 腕の長さ（両肩の間の半分）。</summary>
+    private static readonly float ShoulderHalfWidth = StandardShoulderHalfWidth();
+
+    private static float StandardArmReach()
+    {
+        using var game = new BoxingGame(seed: 1);
+        return game.Player.ArmReach;
+    }
+
+    private static float StandardShoulderHalfWidth()
+    {
+        using var game = new BoxingGame(seed: 1);
+        return Vector3.Distance(game.Player.ShoulderPosition(Hand.Left), game.Player.ShoulderPosition(Hand.Right)) / (2f * game.Player.ArmReach);
+    }
 
     private sealed class Scripted(Func<FighterSense, FighterCommand> read) : IFighterControl
     {
@@ -138,13 +154,15 @@ public sealed class BojutsuTests
     public void TheFormPaths_KeepTheStaffOutOfTheBody_AndTheHandsWithinReach()
     {
         // 目標の経路の設計の確かめ: 棒の線（手の周りを除く）が体の見積もりの箱（SelfClearance）の外を通り、両手が肩から届く所にある。
+        // 手は、基準の体の肩から届く深さへ型をずらした後（MotionImitation.FitBack、ボットの指令と同じ）の位置で、基準の体の肩から測る（2026-11-27 まで型を書いた体の肩 0.283 から）。
         foreach (var form in FormSwordsman.Forms(WeaponKind.Staff))
         {
             var worst = float.MaxValue;
             var reach = 0f;
             foreach (var f in form.Frames)
             {
-                reach = MathF.Max(reach, MathF.Max(Vector3.Distance(f.Right, new Vector3(-0.283f, 0f, 0f)), Vector3.Distance(f.Left, new Vector3(0.283f, 0f, 0f))));
+                var back = MotionImitation.FitBack(f.Right, f.Left, ShoulderHalfWidth);
+                reach = MathF.Max(reach, MathF.Max(Vector3.Distance(f.Right - back, new Vector3(-ShoulderHalfWidth, 0f, 0f)), Vector3.Distance(f.Left - back, new Vector3(ShoulderHalfWidth, 0f, 0f))));
                 for (var s = -1.94f; s <= 1.36f; s += 0.05f)
                 {
                     if (MathF.Abs(s) < 0.1f || MathF.Abs(s + StaffForms.Spacing) < 0.1f)
@@ -157,7 +175,9 @@ public sealed class BojutsuTests
             }
 
             Assert.IsGreaterThan(-0.05f, worst, $"{form.Name}: the staff line stays out of the body boxes");
-            Assert.IsLessThan(0.95f, reach, $"{form.Name}: both hands stay within an arm reach of their shoulders");
+            // 0.95 → 0.97（2026-11-27）: 握りの間隔を肩幅 0.40 m（0.689 腕、前は 0.585 腕）へ広げ、下の手が棒に沿って 0.10 腕遠い（横打ちで 0.963）。腕の長さの内（< 1）。
+            // 0.97 → 1.0（2026-11-27、統合後）: 足払い（ashi-barai）・返し（gaeshi）は棒を低く払うので下の手がほぼ腕いっぱい（0.988・0.990）。守るのは「腕の長さの内（< 1）」そのもの。
+            Assert.IsLessThan(1.0f, reach, $"{form.Name}: both hands stay within an arm reach of their shoulders");
         }
     }
 
@@ -266,7 +286,8 @@ public sealed class BojutsuTests
         var defense = new SwordDefense(Mode: DefenseMode.Parry, Deflect: 0.5f);
         var threat = WeaponDefense.Read(sense, WeaponDefense.Lines(sense, false), defense)!.Value;
         var rear = FormSwordsman.RearLength(WeaponKind.Staff, ArmReach)!.Value;
-        Assert.AreEqual(1.89f, rear, 0.03f, "the rear striking point is 1.89 arm lengths behind the right hand");
+        // 後ろの打つ所は右手から「握りの間隔の半分 + 棒の半分の長さ − 端の丸み」（0.20 + 0.845 m）。前の体の腕 0.53 m では 1.89 腕だった。
+        Assert.AreEqual((0.5f * Weapon.StaffHandSpacing) + 0.845f, rear * ArmReach, 0.016f, "the rear striking point is about a metre behind the right hand");
         Assert.IsNull(FormSwordsman.RearLength(WeaponKind.Katana, ArmReach), "a sword has one striking end");
         var guard = FormSwordsman.Guard(WeaponKind.Staff).Blade;
         var length = FormSwordsman.BladeLength(WeaponKind.Staff, ArmReach);

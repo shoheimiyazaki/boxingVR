@@ -73,7 +73,7 @@
       "height": 1.0529,
       "arms": 1.021,
       "legs": 1.004,
-      "muscle": 0.8673
+      "muscle": 0.789
     },
     "wear": "glove",
     "weapon": null
@@ -87,7 +87,7 @@
       "DefenseRate": 0.558,
       "CounterRate": 0.437,
       "ExitAfterCombo": 0.36,
-      "AttackRange": 0.956,
+      "AttackRange": 0.9146,
       "BreakLikes": {
         "bounce": 3,
         "headphones": 2.5,
@@ -116,8 +116,8 @@
   ],
   "profile": {
     "age": 20,
-    "heightCm": 154,
-    "weightKg": 61,
+    "heightCm": 185,
+    "weightKg": 58,
     "birthplace": "アメリカ",
     "hometown": "フィラデルフィア（ノース・フィラデルフィア）",
     "stance": "オーソドックス",

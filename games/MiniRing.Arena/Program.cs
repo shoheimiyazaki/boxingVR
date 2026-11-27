@@ -54,6 +54,7 @@ try
         "finishlab" => FinishLabCommand(Options.Parse(argv[1..], "attackers", "victims", "levels", "bouts", "seconds", "set", "log", "aim", "victim-set")),
         "attacklab" => AttackLabCommand(Options.Parse(argv[1..], "combos", "telegraphs", "ranges", "bouts", "seconds", "seed", "log", "legacytrunk", "tune")),
         "fistmatch" => FistMatchCommand(Options.Parse(argv[1..], "pairs", "seeds", "seconds", "referee", "parallel", "out", "compare", "labels", "log", "confirm")),
+        "hipcompare" => HipCompare.Run(argv.Length > 1 ? argv[1] : "build", argv.Length > 2 ? argv[2] : "media_tmp/hipcompare", argv.Length > 3 ? argv[3] : "1.05"),
         "punchlab" => PunchLabCommand(Options.Parse(argv[1..], "study", "depths", "aim", "paths", "defenders", "ranges", "reach", "far", "seeds", "telegraph", "nocap", "log", "video", "slow", "width", "height", "fps")),
         "karatelab" => KarateLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log", "cues", "video", "handsheet")),
         "groundtime" => GroundTimeCommand(Options.Parse(argv[1..], "chars", "seeds", "rounds", "shard", "out", "compare", "labels", "log", "confirm", "drill", "victims", "seconds", "org", "set", "finish", "finish-practice", "practice", "hold-victims", "hold-seeds", "gens", "lambda", "seed", "video", "parallel", "teach", "recheck")),

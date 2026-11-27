@@ -434,8 +434,8 @@ internal sealed partial class MenuState
     {
         var divisions = WeightOrg.Divisions;
         var division = divisions[row];
-        var floor = row == 0 ? 0 : (divisions[row - 1].LimitKg ?? 0) + 1;
-        var ceiling = division.LimitKg ?? int.MaxValue;
+        var floor = row == 0 ? 0 : (divisions[row - 1].MaxWholeKg ?? 0) + 1;
+        var ceiling = division.MaxWholeKg ?? int.MaxValue;
         var wanted = TargetKg > ceiling ? ceiling : TargetKg < floor ? floor : TargetKg;
         var kg = Math.Clamp(wanted, lo, hi);
         return WeightOrg.DivisionOf(kg) == division

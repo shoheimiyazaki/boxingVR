@@ -122,7 +122,9 @@ public sealed class BodyLandmarks
 
         var low = sternum.Min(c => c.Y);
         var mean = Mean(sternum.Where(c => c.Y <= low + (0.5f * cell.Y)).ToList());
-        return new Site(chest, new Vector3(mean.X, low - cell.Y, mean.Z));
+        // 胸骨の下の端が胸の格子の最下段まで来る体（胴が大きい基準の体）では、1 セル下は胸の格子の外（腹の格子）で、辿る起点が格子の外だと辿れず、
+        // 腹の骨に着いた。最下段までで止める（胸の格子の中に起点を置く）。
+        return new Site(chest, new Vector3(mean.X, MathF.Max(low - cell.Y, grid.CellCenter(0, 0, 0).Y), mean.Z));
     }
 
     private static List<Vector3> Cells(VoxelGrid grid, Func<byte, Vector3, bool> keep)

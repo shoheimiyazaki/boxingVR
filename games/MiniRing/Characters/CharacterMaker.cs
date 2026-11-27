@@ -11,6 +11,12 @@ namespace MiniRing.Characters;
 public sealed record BodyType(string Id, string Label, float Muscle, float Arms, float Legs, string Note);
 
 /// <summary>
+/// キャラメイク・キャンペーンで作れる人のボクサーの範囲（maker.json の <c>boxerRange</c>）: 身長 [cm] と太さの比（<see cref="BodyBuild.Muscle"/>）。
+/// 体そのものが作れる範囲（比 0.6〜1.5、<see cref="BodyBuild.Validate"/>）より狭い、実物のボクサーの体の幅。
+/// </summary>
+public sealed record BoxerRange(int MinHeightCm, int MaxHeightCm, float MinMuscle, float MaxMuscle);
+
+/// <summary>
 /// ルーツ（キャラメイクの表の 1 行）: 顔のテンプレート。肌・髪・瞳の色の候補と、部品の重み・顔の値。見た目だけで強さに関係しない（体格は変えない）。
 /// 架空の人物を作る出発点で、作った後は部位も値も色も全部変えられる。
 /// </summary>
@@ -149,7 +155,7 @@ public static class CharacterMaker
         AllowTrailingCommas = true,
     };
 
-    private static readonly Lazy<(IReadOnlyList<BodyType> Types, IReadOnlyList<FaceRoot> Roots, IReadOnlyDictionary<string, Norm> Norms)> Table = new(() =>
+    private static readonly Lazy<(IReadOnlyList<BodyType> Types, IReadOnlyList<FaceRoot> Roots, IReadOnlyDictionary<string, Norm> Norms, BoxerRange Range)> Table = new(() =>
     {
         using var stream = typeof(CharacterMaker).Assembly.GetManifestResourceStream(TableResource)
             ?? throw new InvalidOperationException($"組み込みのキャラメイクの表 {TableResource} が見つかりません（MiniRing.csproj の EmbeddedResource）。");
@@ -159,6 +165,9 @@ public static class CharacterMaker
 
     /// <summary>体型の表。</summary>
     public static IReadOnlyList<BodyType> BodyTypes => Table.Value.Types;
+
+    /// <summary>作れる人のボクサーの身長・太さの範囲。</summary>
+    public static BoxerRange Range => Table.Value.Range;
 
     /// <summary>ルーツ（顔のテンプレート）の表。</summary>
     public static IReadOnlyList<FaceRoot> Roots => Table.Value.Roots;
@@ -175,7 +184,7 @@ public static class CharacterMaker
         ?? throw new ArgumentException($"ルーツ '{id}' はありません（{string.Join(", ", Roots.Select(r => r.Id))}）。", nameof(id));
 
     /// <summary>キャラメイクの表の JSON を読んで検証する（色・顔の値・部品の重み・体型の比の範囲）。</summary>
-    public static (IReadOnlyList<BodyType> Types, IReadOnlyList<FaceRoot> Roots, IReadOnlyDictionary<string, Norm> Norms) TableFromJson(string json)
+    public static (IReadOnlyList<BodyType> Types, IReadOnlyList<FaceRoot> Roots, IReadOnlyDictionary<string, Norm> Norms, BoxerRange Range) TableFromJson(string json)
     {
         TableDto dto;
         try
@@ -231,7 +240,11 @@ public static class CharacterMaker
             throw new InvalidDataException($"photoNorms.{unknown} は知りません（{string.Join(", ", keys)}）。");
         }
 
-        return (types, roots, norms);
+        var range = dto.BoxerRange is { HeightCm: [var h0, var h1], Muscle: [var m0, var m1] }
+            && h0 < h1 && m0 < m1 && m0 >= BodySizing.MinRatio && m1 <= BodySizing.MaxRatio
+            ? new BoxerRange(h0, h1, m0, m1)
+            : throw new InvalidDataException("boxerRange は heightCm: [低い, 高い]・muscle: [細い, 太い]（0.6〜1.5 の中）にしてください。");
+        return (types, roots, norms, range);
     }
 
     /// <summary>
@@ -385,6 +398,13 @@ public static class CharacterMaker
         public List<BodyType>? BodyTypes { get; init; }
         public List<RootDto>? Roots { get; init; }
         public Dictionary<string, float[]>? PhotoNorms { get; init; }
+        public RangeDto? BoxerRange { get; init; }
+    }
+
+    private sealed class RangeDto
+    {
+        public int[]? HeightCm { get; init; }
+        public float[]? Muscle { get; init; }
     }
 
     private sealed class RootDto

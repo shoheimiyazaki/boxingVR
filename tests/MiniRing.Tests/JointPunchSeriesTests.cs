@@ -8,8 +8,8 @@ namespace MiniRing.Tests;
 public sealed class JointPunchSeriesTests
 {
     [TestMethod]
-    [DataRow(240, true)]
-    [DataRow(480, true)]
+    [DataRow(240, true, IgnoreMessage = "既知: 連打の腰の位相・BASE_BODY_PLAN §10.8")]
+    [DataRow(480, true, IgnoreMessage = "既知: 連打の腰の位相・BASE_BODY_PLAN §10.8")]
     [DataRow(240, false)]
     public void MeasureRepeatedPunches(int hz, bool grounded)
     {

@@ -40,7 +40,8 @@ public static class BodySizing
             throw new ArgumentOutOfRangeException(nameof(weightKg), weightKg, $"身長 {heightCm} cm で作れる体重は {lo}〜{hi} kg です（筋肉の太さが基準の {MinRatio}〜{MaxRatio} 倍）。");
         }
 
-        var muscle = Bisect(m => PhysicalMassKg(new BodyBuild(height, arms, legs, m, fourLegged)), weightKg, m => CharacterProfile.WeightOf(new BodyBuild(height, arms, legs, m, fourLegged)) == weightKg)
+        // 計量の体重（0.1 kg の目盛り）がちょうど weightKg になる太さ（kg に丸めた体重で止めると 61.4 kg の体が 61 kg になり、階級の境 61.2 を越えた）。
+        var muscle = Bisect(m => PhysicalMassKg(new BodyBuild(height, arms, legs, m, fourLegged)), weightKg, m => CharacterProfile.ScaleWeightOf(new BodyBuild(height, arms, legs, m, fourLegged)) == weightKg)
             ?? throw new InvalidOperationException($"身長 {heightCm} cm で体重 {weightKg} kg になる太さが見つかりませんでした。");
         return new BodyBuild(height, arms, legs, muscle, fourLegged).Validate();
     }
@@ -80,21 +81,21 @@ public static class BodySizing
             throw new ArgumentOutOfRangeException(nameof(weightKg), weightKg, $"この骨格で作れる体重は {lo}〜{hi} kg です（筋肉の太さが基準の {MinRatio}〜{MaxRatio} 倍）。");
         }
 
-        if (CharacterProfile.WeightOf(build) == weightKg)
+        if (CharacterProfile.ScaleWeightOf(build) == weightKg)
         {
             return build;
         }
 
-        var muscle = Bisect(m => PhysicalMassKg(build with { Muscle = m }), weightKg, m => CharacterProfile.WeightOf(build with { Muscle = m }) == weightKg)
+        var muscle = Bisect(m => PhysicalMassKg(build with { Muscle = m }), weightKg, m => CharacterProfile.ScaleWeightOf(build with { Muscle = m }) == weightKg)
             ?? throw new InvalidOperationException($"体重 {weightKg} kg になる太さが見つかりませんでした。");
         return (build with { Muscle = muscle }).Validate();
     }
 
-    /// <summary>この骨格（身長・腕・脚）で作れる体重の範囲 [kg]（筋肉の太さが 0.6〜1.5 倍）。</summary>
-    public static (int Min, int Max) WeightRange(BodyBuild build)
+    /// <summary>この骨格（身長・腕・脚）で作れる体重の範囲 [kg]（筋肉の太さが <paramref name="minMuscle"/>〜<paramref name="maxMuscle"/> 倍、既定は 0.6〜1.5 倍）。</summary>
+    public static (int Min, int Max) WeightRange(BodyBuild build, float minMuscle = MinRatio, float maxMuscle = MaxRatio)
     {
         ArgumentNullException.ThrowIfNull(build);
-        return ((int)MathF.Ceiling(PhysicalMassKg(build with { Muscle = MinRatio })), (int)MathF.Floor(PhysicalMassKg(build with { Muscle = MaxRatio })));
+        return ((int)MathF.Ceiling(PhysicalMassKg(build with { Muscle = minMuscle })), (int)MathF.Floor(PhysicalMassKg(build with { Muscle = maxMuscle })));
     }
 
     /// <summary>体型（太さの比）とこの身長での体重 [kg]。体型を選んだときの体重の初めの値。</summary>
@@ -110,7 +111,7 @@ public static class BodySizing
         ArgumentNullException.ThrowIfNull(build);
         var tuning = FighterTuning.Default with { Build = build };
         var masses = tuning.Masses;
-        var leg = masses.Thigh + masses.Shin + (masses.Foot / (1f - FootGeometry.ToeShare));
+        var leg = masses.Thigh + masses.Shin + masses.Foot + tuning.ToeMass;
         // 四足は脚ごとに骨盤と腿の間の基節（coxa、Fighter.AddRearRig）を 1 つ持つ。
         var coxae = build.FourLegged ? 2f * build.LegPairs * tuning.CoxaMass : 0f;
         var trunkAndArms = masses.Total - (2f * (masses.Thigh + masses.Shin + masses.Foot));

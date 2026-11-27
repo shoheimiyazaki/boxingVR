@@ -72,7 +72,7 @@
       "height": 1.119,
       "arms": 1.013,
       "legs": 0.974,
-      "muscle": 0.9769
+      "muscle": 0.916
     },
     "wear": "glove",
     "weapon": null
@@ -86,7 +86,7 @@
       "DefenseRate": 0.597,
       "CounterRate": 0.753,
       "ExitAfterCombo": 0.586,
-      "AttackRange": 1.25,
+      "AttackRange": 1.1999,
       "BreakLikes": {
         "prayer": 3,
         "bow": 2.5,
@@ -114,8 +114,8 @@
   ],
   "profile": {
     "age": 22,
-    "heightCm": 162,
-    "weightKg": 90,
+    "heightCm": 195,
+    "weightKg": 89,
     "birthplace": "タイ",
     "hometown": "コーンケン",
     "stance": "オーソドックス",

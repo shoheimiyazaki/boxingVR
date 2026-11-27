@@ -401,12 +401,12 @@ internal sealed partial class MenuView(MenuState state, PortraitSet portraits, F
         {
             label("階級（計量 = 見えている体の重さ）", x0, y, 12, Dim);
             y += 16f;
-            var lower = 0;
+            var lower = 0f;
             foreach (var division in weighed.Divisions)
             {
                 var range = division.LimitKg is { } limit
-                    ? string.Create(CultureInfo.InvariantCulture, $"〜{Pounds(limit)} lb（{limit} kg）")
-                    : string.Create(CultureInfo.InvariantCulture, $"{Pounds(lower)} lb 超（{lower} kg 超）");
+                    ? string.Create(CultureInfo.InvariantCulture, $"〜{Pounds(limit)} lb（{MathF.Round(limit):0} kg）")
+                    : string.Create(CultureInfo.InvariantCulture, $"{Pounds(lower)} lb 超（{MathF.Round(lower):0} kg 超）");
                 var count = state.Roster.Count(c => focused.Ineligible(c) is null && focused.DivisionOf(c) == division);
                 label(division.Name, x0 + 6, y, 12, Pale);
                 label(range, x0 + PanelW - 62, y, 12, Pale, TextAnchor.Right, maxWidth: PanelW - 62 - 104);
@@ -421,7 +421,7 @@ internal sealed partial class MenuView(MenuState state, PortraitSet portraits, F
         }
     }
 
-    private static int Pounds(int kg) => (int)MathF.Round(kg / FighterTape.KgPerPound, MidpointRounding.AwayFromZero);
+    private static int Pounds(float kg) => (int)MathF.Round(kg / FighterTape.KgPerPound, MidpointRounding.AwayFromZero);
 
     private (string Who, string Detail) WhoPlays() => state.Mode switch
     {

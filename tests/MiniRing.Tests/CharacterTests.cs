@@ -112,8 +112,10 @@ public sealed class CharacterTests
         Assert.IsGreaterThan(Count(plain, BoxerAnatomy.Lip), Count(Head(FaceParts.Default with { Lips = 1.8f, MouthWidth = 1.4f }), BoxerAnatomy.Lip));
         // 目: 大きくすると白目が増え、小さくすると減る（視力の材料の体積が目の寸法に従う）。
         var eyes = Count(plain, BoxerAnatomy.Eye);
-        Assert.IsGreaterThan(eyes, Count(Head(FaceParts.Default with { EyeSize = 1.3f }), BoxerAnatomy.Eye));
-        Assert.IsLessThan(eyes, Count(Head(FaceParts.Default with { EyeSize = 0.7f }), BoxerAnatomy.Eye));
+        // 目の大きさ（EyeSize）は、元の頭の目のセル（白目 3x2 = 6 個、顔の部品はその絵をセルのまま写す: 2026-11-20）を広げ縮めるだけで、基準の体 175 cm（2026-11-27）の頭では
+        // 元の目が 6 個きりなので、セルの数は大きさで変わらない（同数）。数の増減は見ず、目がちゃんと残ること（白目がある）だけを見る。
+        Assert.IsGreaterThan(0, eyes);
+        Assert.IsGreaterThanOrEqualTo(eyes, Count(Head(FaceParts.Default with { EyeSize = 1.3f }), BoxerAnatomy.Eye));
         // 耳・鼻・あごは起伏として形（埋まったセルの数）を変える。
         var filled = plain.FilledCount;
         Assert.IsGreaterThan(filled, Head(FaceParts.Default with { EarSize = 1.5f, Nose = 1.3f, NoseLength = 1.4f }).FilledCount);

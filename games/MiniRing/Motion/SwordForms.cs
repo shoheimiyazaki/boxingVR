@@ -16,8 +16,8 @@ public readonly record struct SwordKey(float Time, Vector3 Right, float Azimuth,
 /// </summary>
 public static partial class SwordForms
 {
-    /// <summary>ロングソードの両手の間隔（腕の長さ = 1。実寸およそ 17 cm / 腕 53 cm）。</summary>
-    public const float LongswordSpacing = 0.32f;
+    /// <summary>ロングソードの両手の間隔（腕の長さ = 1。実寸 0.1696 m ÷ 基準の体の腕の長さ 0.581 m。2026-11-27 まで ÷ 0.53 = 0.32: <c>FormSpacingTests</c>）。</summary>
+    public const float LongswordSpacing = 0.2919f;
 
     /// <summary>剣の先を測る長さ（腕の長さ = 1。刀身 90 cm）。</summary>
     private const float Blade = 1.7f;
@@ -177,8 +177,11 @@ public static partial class SwordForms
     ];
 
     // ── 日本刀の型（両手、右手が鍔元・左手が柄頭）。構えは剣道の中段（剣道のモーションキャプチャの中段から取った値）。
-    /// <summary>日本刀の両手の間隔（腕の長さ = 1。柄の両端）。</summary>
-    public const float KatanaSpacing = 0.46f;
+    /// <summary>
+    /// 日本刀の両手の間隔（腕の長さ = 1。柄の両端 0.2436 m ÷ 基準の体の腕の長さ 0.581 m。2026-11-27 まで ÷ 0.53 = 0.46。握りの間隔は刀の形の値なので、
+    /// 基準の体の腕が伸びたら割り直す: <c>FormSpacingTests</c>）。
+    /// </summary>
+    public const float KatanaSpacing = 0.4193f;
 
     /// <summary>中段: 拳をへその前、剣先を相手の喉へ（仰角 38°）。</summary>
     private static readonly (Vector3 R, float Az, float El) Chudan = (new Vector3(-0.2f, -0.57f, 0.78f), 0f, 0.66f);

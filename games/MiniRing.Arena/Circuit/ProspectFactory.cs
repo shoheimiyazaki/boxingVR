@@ -118,7 +118,7 @@ internal static class ProspectFactory
             ],
         };
         var (character, json) = CharacterMaker.ToFile(draft);
-        var weighed = org.DivisionOf(CharacterProfile.WeightOf(character.Build));
+        var weighed = org.DivisionOf(CharacterProfile.ScaleWeightOf(character.Build));
         if (weighed.Id != division.Id)
         {
             throw new InvalidOperationException($"新人 {id} の計量 {CharacterProfile.WeightOf(character.Build)} kg が階級 {division.Id} に入りません（{weighed.Id}）。");
@@ -186,7 +186,7 @@ internal static class ProspectFactory
                 continue; // この身長では作れない体重
             }
 
-            if (build.Muscle < b.MinMuscle || build.Muscle > b.MaxMuscle || org.DivisionOf(CharacterProfile.WeightOf(build)).Id != division.Id)
+            if (build.Muscle < b.MinMuscle || build.Muscle > b.MaxMuscle || org.DivisionOf(CharacterProfile.ScaleWeightOf(build)).Id != division.Id)
             {
                 continue;
             }

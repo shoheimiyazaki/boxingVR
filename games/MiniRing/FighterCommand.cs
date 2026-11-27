@@ -128,6 +128,7 @@ public readonly record struct BodySense(Vector3 LeftShoulder, Vector3 RightShoul
 /// 自分が感じる脚の疲れ。倒れた相手を踏む脚を、疲れた脚から元気な脚へ踏み替えるため: <see cref="Bots.HeelBarrage"/>）。既定は 1（疲れていない）。</para>
 /// <para><paramref name="SelfSupplies"/> はこの試合で休みに武器を支給された回数（<see cref="MatchRules.ResupplyWeapons"/>）。武器を失って拳で戦っていた入力元が、
 /// 支給された新しい武器を握ったと知るため（<see cref="Bots.DisarmedFallback"/>）。</para>
+/// <para><paramref name="SelfBody"/> は自分の両肩と腰、<paramref name="SelfChin"/> は自分のあご（ワールド）。拳の間合いを肩からあごまでで測るため（<see cref="Bots.ReachGap"/>）。既定値なら胸・頭から測る。</para>
 /// </summary>
 public readonly record struct FighterSense(
     BodyFrame Self, float ArmReach, Vector3 OpponentHead, Vector3 OpponentChest, bool OpponentAlive,
@@ -138,7 +139,7 @@ public readonly record struct FighterSense(
     bool OpponentDowned = false, bool MayStrikeDowned = false, BodyBuild? SelfBuild = null, BodyBuild? OpponentBuild = null,
     LegBody? SelfLegLeft = null, LegBody? SelfLegRight = null,
     float SelfInjury = 0f, float OpponentInjury = 0f, float OpponentWinded = 0f, MatchSense Match = default, int SelfSupplies = 0, GrappleSense? Grapple = null,
-    bool SelfDowned = false, float SelfLegOxygenLeft = 1f, float SelfLegOxygenRight = 1f)
+    bool SelfDowned = false, float SelfLegOxygenLeft = 1f, float SelfLegOxygenRight = 1f, BodySense SelfBody = default, Vector3 SelfChin = default)
 {
     /// <summary>自分の脚の寸法と立った形の膝（体フレーム）。分からなければ腕の長さからの見積もり。</summary>
     public LegBody SelfLeg(Hand leg) => (leg == Hand.Left ? SelfLegLeft : SelfLegRight) ?? LegBody.FromReach(leg, ArmReach);

@@ -172,7 +172,8 @@ public sealed record RingLayout(float Size, float StartGap, ArenaShape Shape = A
     /// 中心から <paramref name="degrees"/> の向き（X 軸から Z 軸の向きへ測る。角の二等分線）の上で、角にいちばん近く、輪郭 <paramref name="footprint"/>
     /// （骨盤から見た、体と持ち物の格子の箱の角の水平のずれ: X, Z）のどの点も、場のどの面からも <see cref="BoundaryInset"/> ＋ <see cref="CornerClearance"/> 以上内側にある所。
     /// 面の法線 n、二等分線の向き u、中心からの距離 s、輪郭の点 q について n·(s u + q) ≤ Half − 厚み − 隙間 を、u に向いた面（n·u &gt; 0）ごとに解いた s の最小
-    /// （<see cref="EdgeDistance"/> と同じ面の並び）。場の形と持ち物の大きさだけで決まり、持ち物の種類は見ない。輪郭が場より大きければ中心に立つ。
+    /// （<see cref="EdgeDistance"/> と同じ面の並び）。向こう側の面（n·u &lt; 0）は同じ式で s の下限になる（長い武器の先が向こうの縁に触れない）。
+    /// 上限と下限の間が無ければ、二等分線から横へずらして収まる最小のずらし幅の所、それでも無ければ両方の真ん中。上限が負なら中心。場の形と持ち物の大きさだけで決まり、持ち物の種類は見ない。
     /// </summary>
     public Vector3 CornerFor(float degrees, IReadOnlyList<Vector2> footprint)
     {
@@ -181,26 +182,61 @@ public sealed record RingLayout(float Size, float StartGap, ArenaShape Shape = A
         var u = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
         var vertex = IsCage ? Circumradius : Half * MathF.Sqrt(2f); // 角（頂点）までの距離
         var limit = Half - BoundaryInset - CornerClearance;
-        var reach = vertex;
-        foreach (var n in FaceNormals())
+        var perpendicular = new Vector2(-u.Y, u.X);
+        var all = FaceNormals().Select(n =>
+            (Toward: Vector2.Dot(n, u), Side: Vector2.Dot(n, perpendicular), Widest: footprint.Aggregate(0f, (w, q) => MathF.Max(w, Vector2.Dot(n, q))))).ToList();
+        var normals = all.Where(n => MathF.Abs(n.Toward) > 1e-4f).ToList();
+        // 二等分線に平行な面（n·u = 0。檻の 120° の角では 30°・210° の面）は、横の幅だけで決まる（中心からの距離 s には依らない）。
+        var parallel = all.Where(n => MathF.Abs(n.Toward) <= 1e-4f).ToList();
+
+        // 二等分線の上で（lateral = 0）、角の側の面（n·u > 0）は角へ寄れる上限、向こう側の面（n·u < 0）は角から離れすぎない下限
+        // （長い武器の先が向こうの縁に触れない。2026-11-27: 209 cm の konrad のロングソードの先が、素手の檻の向こう側の金網に 1 cm かかった）。
+        (float Reach, float Least) Range(float lateral)
         {
-            var toward = Vector2.Dot(n, u);
-            if (toward <= 1e-4f)
+            var reach = vertex;
+            var least = float.NegativeInfinity;
+            foreach (var (toward, side, widest) in normals)
             {
-                continue;
+                var bound = (limit - widest - (lateral * side)) / toward;
+                if (toward > 0f)
+                {
+                    reach = MathF.Min(reach, bound);
+                }
+                else
+                {
+                    least = MathF.Max(least, bound);
+                }
             }
 
-            var widest = 0f;
-            foreach (var q in footprint)
-            {
-                widest = MathF.Max(widest, Vector2.Dot(n, q));
-            }
-
-            reach = MathF.Min(reach, (limit - widest) / toward);
+            return (reach, least);
         }
 
-        reach = MathF.Max(0f, reach);
-        return Center + new Vector3(u.X * reach, 0f, u.Y * reach);
+        // 上限と下限の間があれば上限（角にいちばん近い所）。間が無ければ（二等分線の上では輪郭が収まらない: 基準の体の 209 cm の剣士は、檻の 2 つの辺の間に
+        // 斜めにしか収まらない）、二等分線から横へ（二等分線に直角に）ずらして、ずらし幅が最小で収まる所（0.5 cm 刻み、+ 側が先）。横にずらしても収まらなければ、
+        // 二等分線の上で角の側と向こう側に同じだけはみ出す真ん中。
+        var (best, bestLeast) = Range(0f);
+        var shift = 0f;
+        bool Sideways(float lateral) => parallel.All(n => (lateral * n.Side) + n.Widest <= limit);
+        if (bestLeast > best || !Sideways(0f))
+        {
+            const float Step = 0.005f;
+            var found = false;
+            for (var k = 1; k <= (int)(Half / Step) && !found; k++)
+            {
+                foreach (var lateral in new[] { k * Step, -k * Step })
+                {
+                    var (r, l) = Range(lateral);
+                    if (l <= r && Sideways(lateral))
+                    {
+                        (best, bestLeast, shift, found) = (r, l, lateral, true);
+                        break;
+                    }
+                }
+            }
+        }
+
+        var reachAlong = MathF.Max(0f, bestLeast <= best ? best : 0.5f * (bestLeast + best));
+        return Center + new Vector3((u.X * reachAlong) - (u.Y * shift), 0f, (u.Y * reachAlong) + (u.X * shift));
     }
 
     /// <summary>場の面の外向きの法線（水平、X と Z）: 四角は ±X・±Z、檻は 30°・90°・150°・210°・270°・330°。</summary>

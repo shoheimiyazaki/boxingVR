@@ -73,7 +73,7 @@
       "height": 1.0617,
       "arms": 0.963,
       "legs": 0.999,
-      "muscle": 0.9688
+      "muscle": 0.9131
     },
     "wear": "glove",
     "weapon": null
@@ -87,7 +87,7 @@
       "DefenseRate": 0.255,
       "CounterRate": 0.321,
       "ExitAfterCombo": 0.167,
-      "AttackRange": 0.975,
+      "AttackRange": 0.933,
       "BreakLikes": {
         "hum": 3.5,
         "dance": 3,
@@ -115,7 +115,7 @@
   ],
   "profile": {
     "age": 23,
-    "heightCm": 155,
+    "heightCm": 187,
     "weightKg": 76,
     "birthplace": "南アフリカ",
     "hometown": "ヨハネスブルグ（ソウェト）",

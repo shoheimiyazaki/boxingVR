@@ -61,12 +61,13 @@
     "weighIn": true,
     "textbooks": ["champion", "jabber", "slugger", "boxer", "outboxer", "swarmer", "counter"]
   },
-  // 階級（体重は見えている体から: CharacterProfile.WeightOf = 物理の体の質量）。上限ちょうどまで入る。
+  // 階級（体重は見えている体から: CharacterProfile.WeightOf = ボクセルで実測した体の質量）。上限ちょうどまで入る。
+  // 境は実物のプロボクシングの階級（2026-11-27、基準の体を 175 cm・75 kg にしたとき）: ライト 135 lb・ミドル 160 lb・ライトヘビー 175 lb・クルーザー 200 lb。
   "divisions": [
-    { "id": "light", "name": "ライト級", "limitKg": 64 },
-    { "id": "middle", "name": "ミドル級", "limitKg": 73 },
-    { "id": "lightheavy", "name": "ライトヘビー級", "limitKg": 80 },
-    { "id": "cruiser", "name": "クルーザー級", "limitKg": 91 },
+    { "id": "light", "name": "ライト級", "limitKg": 61.2 },
+    { "id": "middle", "name": "ミドル級", "limitKg": 72.6 },
+    { "id": "lightheavy", "name": "ライトヘビー級", "limitKg": 79.4 },
+    { "id": "cruiser", "name": "クルーザー級", "limitKg": 90.7 },
     { "id": "heavy", "name": "ヘビー級", "limitKg": null }
   ],
   "titles": { "belt": "{org} {division}王座", "titleBout": "{division}タイトルマッチ", "bout": "{division}" },
@@ -130,22 +131,22 @@
         {
           "id": "light",
           "name": "Lightweight",
-          "limitKg": 64
+          "limitKg": 61.2
         },
         {
           "id": "middle",
           "name": "Middleweight",
-          "limitKg": 73
+          "limitKg": 72.6
         },
         {
           "id": "lightheavy",
           "name": "Light Heavyweight",
-          "limitKg": 80
+          "limitKg": 79.4
         },
         {
           "id": "cruiser",
           "name": "Cruiserweight",
-          "limitKg": 91
+          "limitKg": 90.7
         },
         {
           "id": "heavy",

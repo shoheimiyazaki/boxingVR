@@ -73,7 +73,7 @@
       "height": 1.0726,
       "arms": 0.971,
       "legs": 1.002,
-      "muscle": 0.9381
+      "muscle": 0.8828
     },
     "wear": "glove",
     "weapon": null
@@ -87,7 +87,7 @@
       "DefenseRate": 0.644,
       "CounterRate": 0.97,
       "ExitAfterCombo": 0.83,
-      "AttackRange": 1.235,
+      "AttackRange": 1.1853,
       "BreakLikes": {
         "neckcrack": 2,
         "looksky": 2.5,
@@ -116,7 +116,7 @@
   ],
   "profile": {
     "age": 24,
-    "heightCm": 157,
+    "heightCm": 189,
     "weightKg": 74,
     "birthplace": "カザフスタン",
     "hometown": "アルマトイ",

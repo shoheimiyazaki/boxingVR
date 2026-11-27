@@ -80,36 +80,51 @@ public sealed class DownCallTests
     [TestMethod]
     public void AfterGettingUp_TheFightPausesForABeat_ThenResumes()
     {
-        using var game = StillGame();
-        var f = game.Cpu;
-        Settle(game);
-        f.Concussion = 0.95f; // 倒れて、意識が戻れば立ち上がる
-        bool down = false, recovered = false;
-        var held = 0f;
-        var holdStartedRightAway = false;
-        for (var t = 0f; t < 33.57f && !(recovered && !game.Holding && held > 0f); t += Dt)
+        // 2026-11-27（基準の体）: 脳しんとう 0.95 で倒れた体が 10 カウントまでに意識を戻して立つかは、倒れるときに頭が床を打つ強さ（種）で決まる
+        // （背が高く胴の重い体は頭の落ちる勢いが大きい。DamageModelTests の注釈と同じ）。種 1 は数え終わって試合が作り直される種になったので、
+        // 種 1〜6 のうち立てた最初の種で「立ったらすぐ止め、1 拍だけ止めて再開」を見る（立てる種が無ければ失敗）。
+        var results = new List<string>();
+        foreach (var seed in Enumerable.Range(1, 6))
         {
-            game.Step(default, Dt);
-            down |= f.IsKnockedDown;
-            if (down && !recovered && f.State == FighterState.Standing)
+            using var game = StillGame(seed);
+            var f = game.Cpu;
+            Settle(game);
+            f.Concussion = 0.95f; // 倒れて、意識が戻れば立ち上がる
+            bool down = false, recovered = false;
+            var held = 0f;
+            var holdStartedRightAway = false;
+            for (var t = 0f; t < 33.57f && !(recovered && !game.Holding && held > 0f) && game.Cpu == f; t += Dt)
             {
-                recovered = true;
-                holdStartedRightAway = game.Holding;
+                game.Step(default, Dt);
+                down |= f.IsKnockedDown;
+                if (down && !recovered && f.State == FighterState.Standing)
+                {
+                    recovered = true;
+                    holdStartedRightAway = game.Holding;
+                }
+
+                held += recovered && game.Holding ? Dt : 0f;
             }
 
-            held += recovered && game.Holding ? Dt : 0f;
+            Console.WriteLine($"seed {seed}: down {down}, recovered {recovered}, held {held:0.00}s");
+            results.Add($"seed {seed}: down {down}, recovered {recovered}");
+            if (!(down && recovered))
+            {
+                continue;
+            }
+
+            Assert.IsTrue(holdStartedRightAway, "the referee holds the fight as soon as the fighter is up");
+            Assert.AreEqual(BoxingGame.ResumePause, held, 0.08392f, "for one beat, then the fight goes on");
+            return;
         }
 
-        Console.WriteLine($"down {down}, recovered {recovered}, held {held:0.00}s");
-        Assert.IsTrue(down && recovered, "went down and got back up");
-        Assert.IsTrue(holdStartedRightAway, "the referee holds the fight as soon as the fighter is up");
-        Assert.AreEqual(BoxingGame.ResumePause, held, 0.08392f, "for one beat, then the fight goes on");
+        Assert.Fail($"went down and got back up in at least one seed ({string.Join("; ", results)})");
     }
 
-    private static BoxingGame StillGame()
+    private static BoxingGame StillGame(int seed = 1)
     {
         var still = BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f };
-        return new BoxingGame(seed: 1, corners: new BoxingCorners("still", s => new BoxerBot(still, s), s => new BoxerBot(still, s)));
+        return new BoxingGame(seed: seed, corners: new BoxingCorners("still", s => new BoxerBot(still, s), s => new BoxerBot(still, s)));
     }
 
     private static void Settle(BoxingGame game)

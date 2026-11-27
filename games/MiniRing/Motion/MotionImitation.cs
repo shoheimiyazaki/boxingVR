@@ -126,6 +126,42 @@ public sealed class MotionImitation : IFighterControl
         return command with { RightLeg = kick.Evaluate(Hand.Right, time, motion.Duration, rest, aim, sense.ArmReach, sense.SelfLeg(Hand.Right)) };
     }
 
+    /// <summary>型を書いた体の、肩の半幅 ÷ 腕の長さ（145 cm の体。<see cref="Bots.ElbowSpec.ShoulderHalfWidth"/> と同じ値）。</summary>
+    public const float AuthoredShoulderHalfWidth = 0.283f;
+
+    /// <summary>
+    /// 今の体の肩の半幅 ÷ 腕の長さ（両肩の間の距離の半分。胴の回りに依らない）。肩が見えない入力では型を書いた体の値。
+    /// </summary>
+    public static float ShoulderHalfWidth(in FighterSense sense)
+        => sense.SelfBody == default || sense.ArmReach <= 0f
+            ? AuthoredShoulderHalfWidth
+            : Vector3.Distance(sense.SelfBody.LeftShoulder, sense.SelfBody.RightShoulder) / (2f * sense.ArmReach);
+
+    /// <summary>
+    /// 型（腕の長さ = 1、肩の中心が原点）の両手を、今の体の肩から届くよう後ろへずらす量（体フレームの +Z = 前、腕の長さ）。2026-11-27（基準の体を 175 cm へ）:
+    /// 型は肩の半幅 0.283 腕の体で書いた。肩の広い体（今の基準 0.344）では、体の中心の線の近くを握る両手が各々の肩から遠くなる（刀の中段で添える左手が 1.06 → 1.12 腕）。
+    /// 各々の手について、型を書いた体の肩から手までの距離を、今の肩から同じ距離になる深さを求め、深さが足りない手の分だけ両手をそろって後ろへずらす
+    /// （両手で 1 本の武器を握るとき、武器の向きと握りの間隔を変えない）。肩が狭い体では前へは出さない。型・武器・キャラごとに分けない 1 つの式。
+    /// </summary>
+    public static Vector3 FitBack(Vector3 right, Vector3 left, float shoulderHalfWidth)
+    {
+        var shift = 0f;
+        foreach (var (hand, side) in new[] { (right, -1f), (left, 1f) }) // +X が左
+        {
+            if (hand.Z <= 0f)
+            {
+                continue;
+            }
+
+            var authored = hand - new Vector3(side * AuthoredShoulderHalfWidth, 0f, 0f);
+            var lateral = hand.X - (side * shoulderHalfWidth);
+            var depth = MathF.Sqrt(MathF.Max(0f, authored.LengthSquared() - (lateral * lateral) - (hand.Y * hand.Y)));
+            shift = MathF.Max(shift, hand.Z - depth);
+        }
+
+        return new Vector3(0f, 0f, shift);
+    }
+
     /// <summary>
     /// 剣の動きの 1 フレームを、体への指令にする（長さは腕の長さ <c>sense.ArmReach</c> で、歩く速さは <paramref name="rate"/> 倍で当てはめる。
     /// <paramref name="rate"/> が 0 なら歩かない）。
@@ -133,8 +169,9 @@ public sealed class MotionImitation : IFighterControl
     public static FighterCommand ToCommand(MotionFrame frame, in FighterSense sense, Vector3 face, float rate, float walkSpeed, float maxTwist, Vector3 extraMove = default)
     {
         var reach = sense.ArmReach;
-        var right = frame.Right * reach;
-        var left = frame.Left * reach;
+        var back = FitBack(frame.Right, frame.Left, ShoulderHalfWidth(sense));
+        var right = (frame.Right - back) * reach;
+        var left = (frame.Left - back) * reach;
         // 胴のひねりは拳の位置からも決まる（パンチの形）。動きの胴のひねりになるよう、その分を差し引いて上乗せする。
         var twistBias = frame.Twist - PunchMechanics.TorsoTwist(left, right, reach, maxTwist);
         // 歩く: 腰の速さ（体フレーム）を、腕の長さ・再生の速さで当てはめ、歩く速さの上限で割った指令にする。

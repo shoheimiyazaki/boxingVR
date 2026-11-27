@@ -676,17 +676,16 @@ public sealed partial class BoxerBody
             // 腕・脚は骨で曲げを受ける梁（肉は質量だけ）: 打撃の曲げが骨の強さを超えた所で折れる（VoxelContact が場所を返す）。頭は首の段だけで折れる。
             VoxelGrid? faceGrid = null;
             FaceCellColors? faceColors = null;
-            float? massPerCell = null;
             if (kind == BodyPartKind.Head && !tuning.Build.FourLegged)
             {
-                // 頭: 14 mm の格子は頭蓋骨・脳・首の中だけ。その外は顔の層（7 mm）が持つ（FaceLayer）。頭の質量（体格の寸法から）を 2 つの格子の体積で分ける
-                // （ほかの部位と同じく、質量は体積に比例: 顔の層の 1 セルは 14 mm のセルの 1/8）。剛体の質量と当たりの箱は 2 つの格子の和になる（AddCompanion）。
+                // 頭: 14 mm の格子は頭蓋骨・脳・首の中だけ。その外は顔の層（7 mm）が持つ（FaceLayer）。剛体の質量と当たりの箱は 2 つの格子の和になる（AddCompanion）。
                 var spec = face ?? (look is not null ? FaceSpec.FromLook(look, "face") : FaceSpec.For("standard"));
                 (grid, faceGrid, faceColors) = FaceLayer.Build(grid, spec);
-                massPerCell = world.GetMass(id) / MathF.Max(1f, grid.FilledCount + (faceGrid.FilledCount * FaceLayer.CellVolumeRatio));
+                BoxerAnatomy.DropStrayCells(grid); // 顔の層へ出した後に、頭の格子へ 1〜2 セルだけ離れて残った骨・肉は、最初の歩で黙って破片になるので作る時に除く
             }
 
-            var body = new VoxelBody(world, id, grid, materialMass: false, massPerCell: massPerCell)
+            // 質量と慣性はセルの実測（材質の密度 × セルの体積、docs/plans/BASE_BODY_PLAN.md §3）。当たりの箱は生成のまま（削れて変わったときに合わせ直す）。
+            var body = new VoxelBody(world, id, grid, materialMass: true, fitNow: false, densityScale: tuning.MassScale)
             {
                 BeamAxis = axis,
                 BeamSlices = kind == BodyPartKind.Head ? NeckBoneSlices(grid) : null,
@@ -694,15 +693,16 @@ public sealed partial class BoxerBody
             };
             if (faceGrid is not null)
             {
-                // 剛体の箱と質量は作ったまま（頭の箱 = 2 つの格子を入れる箱、質量はもう 2 つの格子で分けてある）。ほかの部位と同じく、格子が削れて
+                // 剛体の箱は作ったまま（頭の箱 = 2 つの格子を入れる箱）。質量と慣性は下の FitMassToCells で 2 つの格子の実測から。ほかの部位と同じく、格子が削れて
                 // 変わったときに残ったセルへ合わせ直す（UpdateMass）。
-                var faceBody = body.AddCompanion(faceGrid, body.GridCenterLocal, massPerCell!.Value * FaceLayer.CellVolumeRatio, refit: false);
+                var faceBody = body.AddCompanion(faceGrid, body.GridCenterLocal, refit: false);
                 faceBody.PreferField = true; // 顔はいつも打たれる側（粗いグローブ・すね・棍棒に対しても、面の下が潰れるのは顔）
                 _face = new VoxelPart(kind, faceBody, VoxelVolume.For(faceGrid), null, false) { CellColors = faceColors };
                 _originals[_face] = Original.Of(faceGrid);
                 _layers.Add(_face);
             }
 
+            body.FitMassToCells();
             var part = new VoxelPart(kind, body, VoxelVolume.For(grid), axis, distalHigh);
             _parts.Add(part);
             _layers.Add(part);

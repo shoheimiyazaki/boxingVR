@@ -421,7 +421,7 @@ internal static class CircuitCommand
         var b = c.Build;
         var prospects = mine.Where(x => x.Kind == "prospect").ToList();
         var pt = FighterTally.Of(id, prospects, league.Org.Ranking);
-        var division = league.Org.DivisionOf(CharacterProfile.WeightOf(b)).Name;
+        var division = league.Org.DivisionOf(CharacterProfile.ScaleWeightOf(b)).Name;
         var stance = generated["stance"]?.GetValue<string>() ?? "オーソドックス";
         var southpaw = stance == "サウスポー";
         var strengths = new List<string>();

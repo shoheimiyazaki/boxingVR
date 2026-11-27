@@ -179,7 +179,7 @@ internal static class CampaignLadder
         var org = ev.Organization;
         var division = ev.Division;
         var body = boxer.Character with { Weapon = null }; // 武器は大会ごとに選び直す（出られるかは素手の体で見る）
-        if ((OrgBouts.Ineligible(org, body) ?? DivisionReason(org, division, OrgBouts.WeightOf(body)) ?? RecordReason(ev, boxer.Career)) is { } why)
+        if ((OrgBouts.Ineligible(org, body) ?? DivisionReason(org, division, OrgBouts.ScaleWeightOf(body)) ?? RecordReason(ev, boxer.Career)) is { } why)
         {
             return (null, why);
         }
@@ -213,7 +213,7 @@ internal static class CampaignLadder
         var (bouts, wins) = Count(boxer.Career, need.Scope, ev.Org, ev.Division.Id);
         if (entry is not null) { return new(CampaignGateKind.Open, wins, need.MinWins, null); }
         var body = boxer.Character with { Weapon = null };
-        if ((OrgBouts.Ineligible(ev.Organization, body) ?? DivisionReason(ev.Organization, ev.Division, OrgBouts.WeightOf(body))) is not null)
+        if ((OrgBouts.Ineligible(ev.Organization, body) ?? DivisionReason(ev.Organization, ev.Division, OrgBouts.ScaleWeightOf(body))) is not null)
         {
             return new(CampaignGateKind.Other, 0, 0, reason);
         }
@@ -226,13 +226,13 @@ internal static class CampaignLadder
             : new(CampaignGateKind.Other, 0, 0, reason);
     }
 
-    private static string Kg(int v) => v.ToString(CultureInfo.InvariantCulture) + " kg";
+    private static string Kg(float v) => OrgDivision.KgText(v) + " kg";
 
     /// <summary>
     /// 階級: 計量の体重で入る階級（<see cref="Organization.DivisionOf"/>）が大会の階級でなければ出られない。計量のある団体で上限を超えていれば前日計量で失格、
     /// 軽すぎれば自分の階級の大会へ。計量のない団体（<see cref="OrgEntry.WeighIn"/> が false）は体重を発表するだけで弾かない。
     /// </summary>
-    private static string? DivisionReason(Organization org, OrgDivision division, int weight)
+    private static string? DivisionReason(Organization org, OrgDivision division, float weight)
     {
         if (!org.Entry.WeighIn) { return null; }
         var own = org.DivisionOf(weight);
@@ -301,7 +301,7 @@ internal static class CampaignLadder
         var stand = standings.For(division);
         // 記録の席の人でも、出られない・計量で別の階級になった人とは組まない（OrgBouts.Enter が止める組み合わせを出さない）。
         FighterCharacter? Find(string? id) => id is not null && byId.TryGetValue(id, out var c) && OrgBouts.Ineligible(org, c) is null
-            && org.DivisionOf(OrgBouts.WeightOf(c)) == division ? c : null;
+            && org.DivisionOf(OrgBouts.ScaleWeightOf(c)) == division ? c : null;
         switch (tier)
         {
             case CampaignTier.Rookie:

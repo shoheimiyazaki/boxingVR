@@ -71,7 +71,7 @@
       "height": 1.0743,
       "arms": 0.953,
       "legs": 0.963,
-      "muscle": 0.9367
+      "muscle": 0.8745
     },
     "wear": "glove",
     "weapon": null
@@ -85,7 +85,7 @@
       "DefenseRate": 0.434,
       "CounterRate": 0.4,
       "ExitAfterCombo": 0.906,
-      "AttackRange": 1.25,
+      "AttackRange": 1.1999,
       "Southpaw": true,
       "BreakLikes": {
         "hum": 3,
@@ -114,8 +114,8 @@
   ],
   "profile": {
     "age": 24,
-    "heightCm": 154,
-    "weightKg": 73,
+    "heightCm": 185,
+    "weightKg": 72,
     "birthplace": "メキシコ",
     "hometown": "グアダラハラ",
     "stance": "サウスポー",

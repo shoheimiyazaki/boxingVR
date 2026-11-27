@@ -145,6 +145,13 @@ public static class BoxerAnatomy
     private static readonly VoxelMechanics ClothMechanics = Doll(new(1100f, 1.2e6f, 0.005f));
     private static readonly VoxelMechanics LeatherMechanics = Doll(new(1100f, 2.0e6f, 0.004f));
 
+    /// <summary>
+    /// グローブの革（表と親指・縁取り）: 強さは革のまま、密度 492 kg/m³ は近道（2026-11-27 まで全材料に掛けていた相似の 0.4474 × 1100 と同じ値を明示）。
+    /// グローブの格子は革の殻が実物（1〜2 mm）より厚い（セル 1 つぶん）ので、革の密度のままだと 1.1 kg（実物の 16 oz は 0.45 kg）になる（GloveShapeTests）。
+    /// 殻の厚みを実物へ直すまで、質量を前のまま保つ（docs/DEBT.md「キャラクター」(1)）。
+    /// </summary>
+    private static readonly VoxelMechanics GloveLeatherMechanics = Doll(new(492f, 2.0e6f, 0.004f));
+
 
     /// <summary>人形の体の大きさの、人に対する比（腕の長さの比 0.17 m / 0.53 m）。2026-11-20 まで（人形の物理）材質の強さの相似則に使った値。</summary>
     public const float Similitude = 0.32f;
@@ -155,22 +162,16 @@ public static class BoxerAnatomy
     /// </summary>
     public const float StressSimilitude = Similitude * 1.2602f;
 
-    /// <summary>
-    /// 段 2 の密度の倍率: 人形の武器は人の密度 × 人形の寸法だった（体に対して 1/2.24 の重さ）。実物大の寸法で同じ重さの比に保つには密度 × M/L³ = 10 / 22.35 = 0.4474。
-    /// 武器の質量（密度 × 体積）・曲げの慣性で効く。段 3 で 1 にする。
-    /// </summary>
-    public const float DensitySimilitude = 0.4474f;
-
     /// <summary>段 2 のたわむ距離の倍率: 表の値（皮膚 5 mm など）は人形の体のセル（5 mm）で合わせた長さなので、実物大では × L = 2.817。段 3 で人の値（× 1）へ。</summary>
     public const float GiveSimilitude = 2.8169f;
 
     /// <summary>
     /// 人の材質の値を、段 2 の相似則で今の人形と同じ壊れ方にする（強さ・引張・ヤング率・紐の応力 × <see cref="StressSimilitude"/>、
-    /// 密度 × <see cref="DensitySimilitude"/>、たわむ距離 × <see cref="GiveSimilitude"/>）。
+    /// たわむ距離 × <see cref="GiveSimilitude"/>）。密度は実物のまま（2026-11-27 まで × 0.4474 の相似の倍率を掛けていたが、体重をボクセルで実測するので外した:
+    /// docs/plans/BASE_BODY_PLAN.md §3）。
     /// </summary>
     public static VoxelMechanics Doll(VoxelMechanics human) => human with
     {
-        Density = human.Density * DensitySimilitude,
         Give = human.Give * GiveSimilitude,
         Strength = human.Strength * StressSimilitude,
         Tensile = human.Tensile * StressSimilitude,
@@ -180,7 +181,8 @@ public static class BoxerAnatomy
     };
 
     /// <summary>グローブの詰め物（発泡材）: 軽く（120 kg/m³）、弱い圧力で潰れ（0.15 MPa）、大きくたわむ（8 mm）。拳の衝撃を広げて和らげる。</summary>
-    public static VoxelMechanics PaddingMechanics { get; } = Doll(new(120f, 0.15e6f, 0.008f));
+    /// <remarks>密度 54 kg/m³ は 2026-11-27 まで掛けていた相似の 0.4474 × 120 を明示した値（グローブの質量を前のまま保つ近道: <see cref="GloveLeatherMechanics"/>）。</remarks>
+    public static VoxelMechanics PaddingMechanics { get; } = Doll(new(53.7f, 0.15e6f, 0.008f));
 
     /// <summary>
     /// 剣の鋼: 焼き入れした鋼（人で降伏 600MPa、引張 1.5GPa、ヤング率 200GPa。強さ・たわみは人形の相似則で縮める）。密度だけは実物の 7800 kg/m³
@@ -189,11 +191,10 @@ public static class BoxerAnatomy
     public static VoxelMechanics IronMechanics { get; } = WeaponDensity(Doll(new(7800f, 600e6f, 0.0002f, Tensile: 1.5e9f, Stiffness: 200e9f)), 7800f);
 
     /// <summary>
-    /// 武器の材料（鋼・樫）の密度を実物に戻す（2026-11-25、段 3 の一部。docs/plans/FORM_DECAY_STUDY.md）。段 2 の相似の密度の倍率（<see cref="DensitySimilitude"/> 0.4474）を
+    /// 武器の材料（鋼・樫）の密度を実物に戻す（2026-11-25、段 3 の一部。docs/plans/FORM_DECAY_STUDY.md）。段 2 の相似の密度の倍率（0.4474、2026-11-27 に体の材料からも外した）を
     /// 掛けたままだと、形は実物大なのに刀 0.61 kg・ロングソード 0.60 kg・六尺棒 0.52 kg と実物の 4〜5 割の重さで、軽い刃が手首の先で暴れた。
     /// 戻すと形を変えずに刀 1.36 kg（実物は拵え込みで 1.0〜1.4 kg）・ロングソード 1.33 kg（1.3〜1.6 kg）・片手剣 1.95 kg（1.0〜1.5 kg: 刃が厚く、重い側に外れる）・
-    /// 六尺棒 1.17 kg（1.2〜1.5 kg）・杖 0.54 kg（0.5〜0.7 kg）・盾 4.8 kg（3〜6 kg）になる。体の材料（骨・肉…）は相似の密度のまま（体の質量は部位の体積から別に出す:
-    /// docs/DEBT.md「キャラクター」）。
+    /// 六尺棒 1.17 kg（1.2〜1.5 kg）・杖 0.54 kg（0.5〜0.7 kg）・盾 4.8 kg（3〜6 kg）になる。<see cref="Doll"/> が密度を変えなくなった（2026-11-27）ので、今は確かめの意味だけ。
     /// </summary>
     private static VoxelMechanics WeaponDensity(VoxelMechanics doll, float realDensity) => doll with { Density = realDensity };
 
@@ -207,10 +208,12 @@ public static class BoxerAnatomy
     public static VoxelMechanics WoodMechanics { get; } = WeaponDensity(Doll(new(700f, 8e6f, 0.001f, Tensile: 105e6f, Stiffness: 12.3e9f)), 700f);
 
     /// <summary>
-    /// 手の組織（<see cref="HandSkin"/>・<see cref="HandMuscle"/>・<see cref="HandBone"/>）の物性: 2026-11-25 までの木の値（曲げ強さ 60 MPa・ヤング率 10 GPa）のまま。
-    /// 人の手の値ではない近道（docs/DEBT.md「手の物性を木の値で代用」）。武器の木を実物の樫へ直したとき、拳の当たり・手の質量・削れ方を変えないよう分けた。
+    /// 手の組織（<see cref="HandSkin"/>・<see cref="HandMuscle"/>・<see cref="HandBone"/>）の物性: 強さは 2026-11-25 までの木の値（曲げ強さ 60 MPa・ヤング率 10 GPa）のまま。
+    /// 人の手の値ではない近道（docs/DEBT.md「手の物性を木の値で代用」）。武器の木を実物の樫へ直したとき、拳の当たり・削れ方を変えないよう分けた。
+    /// 密度 313 kg/m³（2026-11-27 までの木の 700 × 相似の 0.4474 と同じ値）も近道: 手の格子はグローブの中を埋めた形で実物の手の 2〜3 倍の体積があり、
+    /// 手の組織の密度（≈ 1100）にすると手＋グローブが 1.1 kg（実物は手 0.45 kg ＋ 10 oz のグローブ 0.28 kg）になる（GloveShapeTests）。手の形を実物へ直すまで質量を前のまま保つ。
     /// </summary>
-    public static VoxelMechanics HandMechanics { get; } = Doll(new(700f, 8e6f, 0.001f, Tensile: 60e6f, Stiffness: 10e9f));
+    public static VoxelMechanics HandMechanics { get; } = Doll(new(313f, 8e6f, 0.001f, Tensile: 60e6f, Stiffness: 10e9f));
 
     /// <summary>布と革は皮膚と同じ削れにくさ・同じ組織（肉）にする: 着ても打たれ強さと部位の力は裸のときと変わらない。</summary>
     private const float SkinToughness = 0.7f;
@@ -248,8 +251,8 @@ public static class BoxerAnatomy
         new VoxelMaterial("pupil", VoxelTissue.Organ, 0.8f, false, Rgb(0.02f, 0.02f, 0.03f), Rgb(0.02f, 0.02f, 0.03f), Stainable: 0f, Mechanics: BrainMechanics),
         new VoxelMaterial("iron", VoxelTissue.Solid, 50f, false, Rgb(0.72f, 0.74f, 0.78f), Rgb(0.82f, 0.84f, 0.88f), Stainable: 0.6f, Mechanics: IronMechanics),
         new VoxelMaterial("wood", VoxelTissue.Solid, WoodToughness, false, Rgb(0.78f, 0.6f, 0.38f), Rgb(0.5f, 0.32f, 0.16f), Stainable: 0.7f, Mechanics: WoodMechanics),
-        new VoxelMaterial("red glove", VoxelTissue.Solid, SkinToughness, false, Rgb(0.85f, 0.1f, 0.1f), Rgb(0.85f, 0.1f, 0.1f), Stainable: 0.6f, Mechanics: LeatherMechanics),
-        new VoxelMaterial("blue glove", VoxelTissue.Solid, SkinToughness, false, Rgb(0.1f, 0.25f, 0.85f), Rgb(0.1f, 0.25f, 0.85f), Stainable: 0.6f, Mechanics: LeatherMechanics),
+        new VoxelMaterial("red glove", VoxelTissue.Solid, SkinToughness, false, Rgb(0.85f, 0.1f, 0.1f), Rgb(0.85f, 0.1f, 0.1f), Stainable: 0.6f, Mechanics: GloveLeatherMechanics),
+        new VoxelMaterial("blue glove", VoxelTissue.Solid, SkinToughness, false, Rgb(0.1f, 0.25f, 0.85f), Rgb(0.1f, 0.25f, 0.85f), Stainable: 0.6f, Mechanics: GloveLeatherMechanics),
         new VoxelMaterial("padding", VoxelTissue.Solid, 1f, false, Rgb(0.92f, 0.9f, 0.82f), Rgb(0.92f, 0.9f, 0.82f), Stainable: 0.4f, Mechanics: PaddingMechanics),
         new VoxelMaterial("lip", VoxelTissue.Flesh, SkinToughness, false, Rgb(0.8f, 0.4f, 0.38f), Rgb(0.8f, 0.4f, 0.38f), Stainable: 1f, Mechanics: SkinMechanics),
         new VoxelMaterial("cord", VoxelTissue.Flesh, 0.5f, false, Rgb(0.5f, 1f, 0.15f), Rgb(0.5f, 1f, 0.15f), Stainable: 0f, Mechanics: CordMechanics),
@@ -257,9 +260,9 @@ public static class BoxerAnatomy
         new VoxelMaterial("hand muscle", VoxelTissue.Flesh, HandToughness, false, Rgb(0.81f, 0.05f, 0.07f), Rgb(0.81f, 0.05f, 0.07f), Stainable: 0.3f, Mechanics: HandMechanics),
         new VoxelMaterial("hand bone", VoxelTissue.Bone, HandToughness, false, Rgb(1f, 0.97f, 0.88f), Rgb(1f, 0.97f, 0.88f), Stainable: 0f, Mechanics: HandMechanics),
         new VoxelMaterial("artery", VoxelTissue.Flesh, 1f, false, Rgb(1f, 0f, 0.25f), Rgb(1f, 0f, 0.25f), Stainable: 0f, Mechanics: MuscleMechanics),
-        new VoxelMaterial("red glove thumb", VoxelTissue.Solid, SkinToughness, false, Rgb(0.58f, 0.06f, 0.07f), Rgb(0.58f, 0.06f, 0.07f), Stainable: 0.6f, Mechanics: LeatherMechanics),
-        new VoxelMaterial("blue glove thumb", VoxelTissue.Solid, SkinToughness, false, Rgb(0.06f, 0.16f, 0.58f), Rgb(0.06f, 0.16f, 0.58f), Stainable: 0.6f, Mechanics: LeatherMechanics),
-        new VoxelMaterial("glove trim", VoxelTissue.Solid, SkinToughness, false, Rgb(0.97f, 0.97f, 0.94f), Rgb(0.97f, 0.97f, 0.94f), Stainable: 0.8f, Mechanics: LeatherMechanics),
+        new VoxelMaterial("red glove thumb", VoxelTissue.Solid, SkinToughness, false, Rgb(0.58f, 0.06f, 0.07f), Rgb(0.58f, 0.06f, 0.07f), Stainable: 0.6f, Mechanics: GloveLeatherMechanics),
+        new VoxelMaterial("blue glove thumb", VoxelTissue.Solid, SkinToughness, false, Rgb(0.06f, 0.16f, 0.58f), Rgb(0.06f, 0.16f, 0.58f), Stainable: 0.6f, Mechanics: GloveLeatherMechanics),
+        new VoxelMaterial("glove trim", VoxelTissue.Solid, SkinToughness, false, Rgb(0.97f, 0.97f, 0.94f), Rgb(0.97f, 0.97f, 0.94f), Stainable: 0.8f, Mechanics: GloveLeatherMechanics),
     ]);
 
     /// <summary>腰のゴム: 骨盤の外形の上からこの高さ（正規化 Y）より上。</summary>
@@ -328,6 +331,34 @@ public static class BoxerAnatomy
         }
 
         return WithJointEnds(kind, grid);
+    }
+
+    /// <summary>取り除く「離れて残ったセル」の大きさの上限（セル数）。</summary>
+    private const int StrayCellLimit = 2;
+
+    /// <summary>
+    /// 顔の層へ出した後の頭の格子で、いちばん大きいつながりに 6 近傍でつながらない 1〜2 セルを取り除く（骨・肉・皮膚）。残すと最初の歩で黙って破片に分かれ、
+    /// その破片が頭の <c>BodyId</c>（顔の層と同じ剛体）を「断たれた部位」にして、頭と顔の層の再生が全部止まった（OrgHealing）。
+    /// 首の隙間を埋める <see cref="JointBridge"/> は頭の下の縁の皮膚のセルを使うので、離れた皮膚のセルを外すと隙間のセルの数が、親のまわりの有り無しで食い違う
+    /// （JointBridgeTests.TheNeckGap: 30 対 22。隙間の埋め方が頭の縁の細かいセルに敏感な別件で、BASE_BODY_PLAN §10.6）。つながっていれば何もしない。
+    /// </summary>
+    internal static void DropStrayCells(VoxelGrid grid)
+    {
+        if (grid.IsConnected())
+        {
+            return;
+        }
+
+        var parts = grid.ConnectedComponents();
+        var main = parts.OrderByDescending(p => p.Length).First();
+        var removed = new List<RemovedVoxel>();
+        foreach (var part in parts.Where(p => !ReferenceEquals(p, main) && p.Length <= StrayCellLimit))
+        {
+            foreach (var i in part)
+            {
+                grid.Break(i, removed);
+            }
+        }
     }
 
     /// <summary>

@@ -2,7 +2,7 @@
   "Name": "muaythai", "RingName": "ムエタイ", "Aggression": 0.85, "Telegraph": 0.08392,
   "Aim": { "Chin": 1.3, "Temple": 1.2, "Liver": 1.2, "SolarPlexus": 0.8, "Heart": 0.3, "GuardArm": 0.2 },
   "ComboWeights": { "1": 3, "2": 1.5, "1-2": 3, "1-2-3": 2, "3-4": 1, "3b-3": 1 },
-  "AttackRange": 0.95, "NeutralRange": 1.2, "EngageRange": 1.6,
+  "AttackRange": 0.9088, "NeutralRange": 1.1514, "EngageRange": 1.5395,
   "Circling": 0.4, "HeadMovement": 0.4, "ExitAfterCombo": 0.3,
   "BlockWeight": 1.4, "SlipWeight": 0.5, "SwayWeight": 0.6, "StepBackWeight": 0.6, "ParryWeight": 0.3,
   "DefenseRate": 0.75, "CounterRate": 0.7, "ReactionTime": 0.2853, "Anticipation": 0.7,

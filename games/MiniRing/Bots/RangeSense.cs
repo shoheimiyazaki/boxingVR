@@ -7,7 +7,7 @@ namespace MiniRing.Bots;
 /// 打たれてから守るのでは間に合わない（ストレートは構えから当たるまで約 0.08 秒、反応は 0.2 秒以上。D1 の計測を相似で換算）ので、危ない所にいること自体を
 /// 手がかりにして、構え・頭の動き・当てずっぽうの回避・足運びを変える。どの層もここが出す連続の値を使い、技の名前で分けない。
 /// <para>
-/// 危険度は位置関係と速さだけから出す: 相手の肩（胸の少し上）から自分の頭までの距離が、相手の届く長さ（腕の長さ × <see cref="BotStyle.RangeThreat"/>）と、
+/// 危険度は位置関係と速さだけから出す: 相手の両肩から自分のあごまでの距離（<see cref="ReachGap.FromOpponent"/>）が、相手の届く長さ（腕の長さ × <see cref="BotStyle.RangeThreat"/>）と、
 /// 相手が詰めてくる速さ × 自分の反応時間（反応する間に詰められる分）の和より近いほど高い。境目は <see cref="Width"/> の幅でなめらかにつなぐ。
 /// 乱数は使わない（決定的）。
 /// </para>
@@ -35,7 +35,7 @@ internal sealed class RangeSense
     /// <summary>相手が握っている武器の、握りから先までの長さ [m]（握っていなければ 0）。危ない所はその分遠くまで伸びる。</summary>
     public float WeaponLength { get; private set; }
 
-    /// <summary>相手の肩から自分の頭までの距離 [m]（調査用）。</summary>
+    /// <summary>相手の両肩から自分のあごまでの距離の平均 [m]（<see cref="ReachGap.FromOpponent"/>、調査用）。</summary>
     public float Distance { get; private set; }
 
     /// <summary>
@@ -46,8 +46,8 @@ internal sealed class RangeSense
     {
         var reach = sense.OpponentArmReach > 0f ? sense.OpponentArmReach : sense.ArmReach;
         var shoulder = sense.OpponentChest + new Vector3(0f, 0.25f * reach, 0f);
-        var toMe = head - shoulder;
-        var distance = toMe.Length();
+        var toMe = head - shoulder; // 詰めてくる向き（速さの成分を取るだけ）
+        var distance = ReachGap.FromOpponent(sense with { SelfHead = head }); // 相手の両肩から自分のあごまで
         Distance = distance;
         if (!sense.OpponentAlive || distance < 1e-5f || reach <= 0f)
         {

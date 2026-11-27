@@ -129,6 +129,13 @@ internal static class SwordPractice
         for (var t = 0f; t < 14f && t < endAt; t += dt)
         {
             game.Step(default, dt);
+            if (t == 0f)
+            {
+                // 最初の 1 歩で、作ったばかりの格子の浮いたセル（毛・皮の 1〜3 個）が剥がれる。それを刃の傷に数えない（当たる前の速さが 0 と出ていた）。
+                foeStart = foe.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount);
+                ownStart = me.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount);
+            }
+
             var active = bot.Current is not null;
             watch?.Invoke(game, t, active);
             if (active && !started)

@@ -224,8 +224,8 @@ public sealed class MenuMouseTests
 
             // 階級の表: 今より軽い階級の行を押すと、その階級の上限へ。
             var org = MenuState.WeightOrg;
-            var lighter = org.Divisions.Select((d, i) => (d, i)).LastOrDefault(p => p.d.LimitKg is { } limit && limit < state.TargetKg && limit >= lo);
-            if (lighter.d is { LimitKg: { } top })
+            var lighter = org.Divisions.Select((d, i) => (d, i)).LastOrDefault(p => p.d.MaxWholeKg is { } limit && limit < state.TargetKg && limit >= lo);
+            if (lighter.d is { MaxWholeKg: { } top })
             {
                 Tap(menu, CampaignLayout.DivisionRowCenter(lighter.i));
                 Assert.AreEqual(top, state.TargetKg);

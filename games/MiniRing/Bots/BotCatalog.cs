@@ -22,9 +22,9 @@ public static class BotCatalog
         Telegraph = 0.1007f, Prediction = 0.6f, EdgeRange = 0.7f,
         RangePress = 0.5f, RangeGuard = 0.6f, // 間合いの層（R3）: 外から打つので打って解消は弱め、入られたら構えを上げる
         Aggression = 0.45f,
-        AttackRange = 1.02f,
-        NeutralRange = 1.5f,
-        EngageRange = 1.75f,
+        AttackRange = 0.9767f,
+        NeutralRange = 1.4425f,
+        EngageRange = 1.685f,
         ComboWeights = new Dictionary<string, float> { ["1"] = 4f, ["1-1"] = 2f, ["1-2"] = 3f, ["1-1-2"] = 1f, ["f-1-2"] = 1f, ["1b-2"] = 0.5f },
         ExitAfterCombo = 0.85f,
         Circling = 0.75f,
@@ -53,7 +53,7 @@ public static class BotCatalog
         Telegraph = 0.1007f, Prediction = 0.9f, EdgeRange = 0.6f,
         RangePress = 0.5f, RangeGuard = 0.8f, // 間合いの層（R3）: 待って返すので打って解消は弱め、構えは厚く
         Aggression = 0.2f,
-        NeutralRange = 1.25f,
+        NeutralRange = 1.1999f,
         ComboWeights = new Dictionary<string, float> { ["1"] = 3f, ["1-2"] = 2f, ["f-2"] = 2f, ["f-3"] = 1f },
         ExitAfterCombo = 0.5f,
         Circling = 0.5f,
@@ -74,8 +74,8 @@ public static class BotCatalog
         Telegraph = 0.12f, Prediction = 0.2f, EdgeRange = 0f,
         RangePress = 2f, RangeGuard = 0.3f, // 間合いの層（R3）: 前へ出て打ち合う。居続けたら強く打って解消、構えは薄め
         Aggression = 0.7f,
-        AttackRange = 0.9f,
-        NeutralRange = 1.2f,
+        AttackRange = 0.8603f,
+        NeutralRange = 1.1514f,
         PunchSpeed = 0.9f,
         ComboWeights = new Dictionary<string, float> { ["1-oh"] = 3f, ["3-4"] = 3f, ["6-3"] = 2f, ["2-3-2"] = 2f, ["4b-3"] = 1f, ["1-2"] = 1f },
         ExitAfterCombo = 0.15f,
@@ -100,9 +100,9 @@ public static class BotCatalog
         Telegraph = 0.06714f, Prediction = 0.4f, EdgeRange = 0.5f,
         RangePress = 1f, RangeGuard = 0.4f, // 間合いの層（R3）: 手数で解消、構えは中くらい
         Aggression = 0.69988924f,
-        AttackRange = 1.2508752f,
-        NeutralRange = 1.627571f,
-        EngageRange = 1.8138998f,
+        AttackRange = 1.2007f,
+        NeutralRange = 1.5662f,
+        EngageRange = 1.747f,
         PunchSpeed = 1.15f,
         ComboWeights = new Dictionary<string, float> { ["1-1"] = 20.36468f, ["1-2"] = 4.931102f, ["1-1-2"] = 1f, ["1b-2"] = 1.0986178f, ["f-2"] = 0.5544842f, ["5-2"] = 1f, ["1-2-3b"] = 1f, ["f-3"] = 1f },
         ExitAfterCombo = 0.90590143f,
@@ -128,9 +128,9 @@ public static class BotCatalog
         Telegraph = 0.06f, Prediction = 0f, EdgeRange = 0f,
         RangePress = 1f, RangeGuard = 0.6f, // 間合いの層（R3）
         Aggression = 1f,
-        AttackRange = 1.001754f,
-        NeutralRange = 1.3007601f,
-        EngageRange = 1.546155f,
+        AttackRange = 0.959f,
+        NeutralRange = 1.2491f,
+        EngageRange = 1.4872f,
         PunchSpeed = 1.15f,
         ComboWeights = new Dictionary<string, float>
         {
