@@ -19,7 +19,7 @@ public sealed class PunchWeightTests
         // 前のつま先でも成り立たない（溜め 219 対 溜めなし 220 J、溜めで腰が弱い 210 J。固いつま先では 209・210・250 J。ToeRegressionProbe.CrossEnergy）。
         // 5 本の合計で成り立つ「腰が強いと溜めなしの右が重い」（前 220 対 166 J、今 210 対 152 J）だけを確かめ、溜めの 2 つは数字を出すだけにする（docs/plans/TOE_GAP_STUDY.md）。
         var standard = FighterTuning.Default;
-        var weakHips = standard with { PelvisRotatorTorque = 60f };
+        var weakHips = standard with { PelvisRotatorTorque = standard.PelvisRotatorTorque * 0.4f }; // 既定の 0.4 倍（2026-11-27 まで 60 N·m の直書き = 前の既定 150 の 0.4。筋の置き直しで既定が変わっても同じ比べ）
         float Sum(FighterTuning tuning, float telegraph) => Ranges.Sum(range => Cross(tuning, telegraph, range: range));
         var quick = Sum(standard, 0.06f);
         var loaded = Sum(standard, 0.25f);

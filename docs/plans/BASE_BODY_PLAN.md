@@ -322,3 +322,16 @@ Aigis の既定の体 × 頭 0.8・腕の長さ 1.18（145 cm）をやめ、Mini
 1. 段 4 のあとの失敗 42 件から段 5 の 4 件を引いた残りを 1 件ずつ（§8.9 の分け方がほぼそのまま当てはまる）: 格子・顔（`VoxelSplitTests`・`LandmarkTests`・`CharacterTests.FaceTemplates`・`JointBridgeTests`・`BodyAndMatchTests.Regenerate`・`OrgHealingTests`）、両手の武器（9.4 の型の書き直し: `WeaponGraspTests` 4・`ClubGripTests`・`ClawHoldTests` 2・`ClawTrajectoryTests`・`SwordTests`・`BojutsuTests` 2・`SwordOneBlowTests` edgar）、寸法（`CornerClearanceTests`）、試合・打撃（`JointPunchSeriesTests` 2・`NeckMuscleTests`・`BodyAndMatchTests.ALiverShot`・`TrunkTwistTests`・`HybridMatchTests` 2・`DownCallTests`）、脚（`HeelStompTests` 2・`LegLossTests`）、スタミナ（`StaminaTempoTests`・`StaminaBudgetTests`）。
 2. 始めの深いしゃがみ（`StartCrouchProbe`）・起き上がり（種 8）・あごへの 1 発の連続・剣の一撃の測り。
 3. 9.3 の合格の決め方の判断（統合役）と、ボットの間合いの見直し（9.2）。
+
+### 9.9 コードレビュー（別のエージェント、2026-11-27）
+
+高い重要度は無し（慣性の式・削れたときの入れ直し・決定性・`CornerFor` の下限・`StandardBodyStrength` の比は検算で合っていた）。直した物: `PunchWeightTests` の弱い腰を 60 N·m の直書きから既定の 0.4 倍へ（筋の置き直しで比べの意味がずれていた）、肩・肘・腰の筋のトルクの注釈を置き直し後の値へ、`VoxelMassTests` に slow。DEBT・CHARACTERS・ORGS・CAMPAIGN_PLAN・GUIDE を元の枝から移した（腰の駆動の項は除く）。
+直していない物（次の作業者・統合役へ）:
+- 慣性は対角だけで、非対角（重心のずれた武器・手の companion）を捨てている。重心は箱の中心のまま（DEBT「キャラクター」(1) に書いてある）。直すなら `Symmetric3x3` で積の項も足す。
+- 計量が丸めた整数の体重と小数の境（61.2 など）を比べる（`Organization.DivisionOf`・`CampaignEvents.DivisionReason`）: 実測 61.4 kg が 61 でライト級に入る。計量は丸める前の `PhysicalMassKg` で比べるのが筋。
+- 作れる体重の範囲が 2 通り（キャンペーンは `CharacterMaker.Range` の太さ 0.82〜1.25、MakerServer は 0.6〜1.5。§1.5）。
+- `CircuitTests` の IVF の新人のファイルは全部 `generatorVersion: 1` で、版 2 の確かめが空回りしている。
+- 股・膝・足首の置き直し後の値（足首 1145 N·m など）は人の値から離れる（前の人形の体の手触りを保つ置き直しの結果。§8.7 の統合役の指定）。
+- 両手の武器の型の間隔は「握りの長さ ÷ 基準の腕」を手で割った定数（型が腕の単位なので、腕の長い体ほど同じ柄を広く握る）。9.4 の型の書き直しで、握りの間隔を m で持つ形にする。
+- `FighterPhysicsTests.Standing` の生成から落ち着くまでの流れの上限を外したのは A の枝（c586bcea）の変更。
+- 打たれるたびに格子を全部なめて慣性を数える（`VoxelBody.UpdateMass`）: `perf` で未測定。空の格子の慣性の床（1e-10）が小さい。

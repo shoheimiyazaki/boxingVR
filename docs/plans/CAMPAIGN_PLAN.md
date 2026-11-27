@@ -23,7 +23,7 @@
 | ボクサー・戦績・置き場（1 人 1 ファイル） | `CampaignBoxer`・`CampaignCareer`・`CampaignStore`（`Campaign/CampaignBoxer.cs`） |
 | 試合の結果を戦績へ（終わった試合だけ。途中で抜けたら書かない） | `MatchSession.Outcome` → `MenuGame` → `MatchMenu.Finish`（決着）/ `MatchMenu.Return`（途中で抜けた）→ `RecordBout` |
 | 決着から次へ自動で進む（下の「決着から本拠地まで」） | `MatchFinish`・`FinishGate`（`MatchFinish.cs`）・`MenuPage.Result`（`MenuState.Result.cs`・`MenuView.Result.cs`） |
-| 減量・増量の口: 骨格はそのまま太さだけを変えて目標の体重へ | `BodySizing.WithWeight`・`CampaignBoxer.ChangeWeight` |
+| 減量・増量の口: 骨格はそのまま太さだけを変えて目標の体重へ（体重はボクセルの実測。作れる範囲は人のボクサーの太さ 0.82〜1.25・身長 155〜205 cm: `maker.json` の `boxerRange`、2026-11-27） | `BodySizing.WithWeight`・`CampaignBoxer.ChangeWeight`・`CharacterMaker.Range` |
 | テスト | `CampaignTests`・`CampaignMenuTests`・`CampaignPlanTests`・メニューの既存テスト（フリーバトル経由に直した）・`MenuPagesVisualTests`（`menu_03b`・`menu_15`〜`menu_27`） |
 
 ### 画面の段（2026-11-26 作り直し）

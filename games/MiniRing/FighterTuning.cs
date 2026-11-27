@@ -120,7 +120,7 @@ public sealed record FighterTuning
     /// </summary>
     public float TrunkRotatorTorque { get; init; } = 120f * StandardBodyStrength.Trunk;
 
-    /// <summary>腰の回旋筋のトルク上限 [N·m]。null なら胸と同じ値を使う。150 N·m で最大溜めの腰の角速度 3.67 rad/s。</summary>
+    /// <summary>腰の回旋筋のトルク上限 [N·m]。null なら胸と同じ値を使う。150 N·m で最大溜めの腰の角速度 3.67 rad/s（前の 145 cm の体での測り。2026-11-27 から基準の体の置き直し × 1.52 で 228 N·m）。</summary>
     public float? PelvisRotatorTorque { get; init; } = 150f * StandardBodyStrength.Trunk;
 
     /// <summary>
@@ -291,12 +291,14 @@ public sealed record FighterTuning
     /// 弱い向きの屈曲・外転に合わせた 60。2026-11-25 まで 40（実物大へ移す前の値のまま。docs/plans/FORM_DECAY_STUDY.md: 武器を実物の重さにすると、構えた刃が垂れた）。
     /// 拳を目標へ引く力（<see cref="MaxHandForce"/>）は別にある。
     /// </summary>
+    /// 2026-11-27: 基準の体を 175 cm へ移したとき、前の人形の体の質量 × てこに対する比を保つ置き直し（<see cref="StandardBodyStrength"/>）を掛けた（63 N·m。文献の値の幅の中）。
     public float ShoulderMaxTorque { get; init; } = 60f * StandardBodyStrength.Shoulder;
 
     /// <summary>
     /// 肘のサーボが出せる最大トルク [N·m]（TorqueScale 倍する前）。人の肘の等尺性の最大: 屈曲 60〜75・伸展 40〜50 N·m（成人男性、肘 90°。Kulig 1984、
     /// Murray 1995）。1 つのサーボで曲げ・伸ばしを分けないので間の 50。2026-11-25 まで 30（同上）。
     /// </summary>
+    /// 2026-11-27: 基準の体の置き直し（<see cref="StandardBodyStrength"/>）を掛けて 48 N·m。
     public float ElbowMaxTorque { get; init; } = 50f * StandardBodyStrength.Elbow;
 
     /// <summary>手にはめた物を回す最大トルク（TorqueScale 倍する前。人の手首の伸展の最大 7〜10 N·m の上の方）。握った武器は <see cref="GripWristMaxTorque"/>。</summary>
