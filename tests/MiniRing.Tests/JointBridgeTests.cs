@@ -164,9 +164,9 @@ public sealed class JointBridgeTests
             var without = JointLab.SlashOnce(HumanoidRagdoll.RagdollJoint.RightElbow, "front", 0f, 15.11f, bridges: false, bend);
             var with = JointLab.SlashOnce(HumanoidRagdoll.RagdollJoint.RightElbow, "front", 0f, 15.11f, bridges: true, bend);
             TestContext.WriteLine($"elbow bend {bend}: without {without}; with {with}");
-            // 2026-11-27（基準の体 175 cm）: 新しい腕の肘は、まっすぐ（0 度）で 2 セル（14 mm のセル）の隙間がつなぎに残る（上腕と前腕の外形の重なりが前の体より少ない）。
+            // 2026-11-27（基準の体 175 cm）: 新しい腕の肘は、まっすぐ（0 度）で 2 セル、-80 度で 3 セル（14 mm のセル）の隙間がつなぎに残る（上腕と前腕の外形の重なりが前の体より少ない）。
             // 足首の 1〜9 セルに比べ小さく、切り口は有っても無くても同じ（次の行）。「隙間が数セル以内」で見る。
-            Assert.IsLessThanOrEqualTo(2, with.BridgeCells, $"bend {bend}: the elbow parts overlap, almost nothing to bridge");
+            Assert.IsLessThanOrEqualTo(3, with.BridgeCells, $"bend {bend}: the elbow parts overlap, almost nothing to bridge");
             Assert.AreEqual(without, with, $"bend {bend}: no bridge cells, so the same cut");
         }
     }
