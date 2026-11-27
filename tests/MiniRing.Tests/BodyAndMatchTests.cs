@@ -93,6 +93,9 @@ public sealed class BodyAndMatchTests
         Settle(game);
         var f = game.Cpu;
         int Filled() => f.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount);
+        // 2026-11-27（基準の体）: 作ったばかりの頭に斜めでしか触れていない毛のセル（2 個）が最初の歩で剥がれる（docs/plans/BASE_BODY_PLAN.md §10）。
+        // 剥がれた分も「削れた分」として生えるので、まず全部生やして「満タン」の数を取る（何を削って生やすかのテストで、頭の形のテストではない）。
+        f.Voxels!.Regenerate(int.MaxValue);
         var full = Filled();
         for (var i = 0; i < 4; i++)
         {

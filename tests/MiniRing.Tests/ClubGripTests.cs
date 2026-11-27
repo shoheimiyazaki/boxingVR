@@ -208,6 +208,9 @@ public sealed class ClubGripTests
         // 構えている間、握りは握った手の前腕に触れ続けるが、自分を打ったことにはならない（両手でも）。
         using var game = Armed(s => Guard(Hand.Right, s.ArmReach));
         using var bat = TwoHands(s => WeaponSwing.GuardCommand(s.ArmReach, SwingFamily.Bat));
+        // 2026-11-27（基準の体）: 作ったばかりの頭の浮いた毛のセル（3 個）が最初の歩で剥がれるので、1 歩進めてから数える（握りが手を潰すかを見るテスト）。
+        game.Step(default, 1f / 60f);
+        bat.Step(default, 1f / 60f);
         var own = game.Cpu.Voxels!.Layers.Sum(p => p.Body.Grid.FilledCount);
         var batOwn = bat.Cpu.Voxels!.Layers.Sum(p => p.Body.Grid.FilledCount);
         var selfHits = 0;

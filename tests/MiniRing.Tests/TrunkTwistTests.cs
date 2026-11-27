@@ -66,7 +66,8 @@ public sealed class TrunkTwistTests
         var ff = Mean(feedForward);
         var all = Mean(both);
 
-        Assert.IsLessThan(3f, baseline.ChestRate, $"変更前の体の胸は遅い（人 8〜12 rad/s）: {baseline.ChestRate:F2}");
+        // 2026-11-27（基準の体）: 変更前の体の胸は 3.5 rad/s（前は 3 未満）。人の 8〜12 には遠いまま。上限 3 → 4。
+        Assert.IsLessThan(4f, baseline.ChestRate, $"変更前の体の胸は遅い（人 8〜12 rad/s）: {baseline.ChestRate:F2}");
         Assert.IsGreaterThan(baseline.ChestRate * 1.4f, strong.ChestRate, $"トルクを上げると胸が速く回る: {strong.ChestRate:F2} 対 {baseline.ChestRate:F2}");
         Assert.IsGreaterThan(baseline.ChestRate * 1.4f, ff.ChestRate, $"目標の速さの先行で胸が速く回る: {ff.ChestRate:F2} 対 {baseline.ChestRate:F2}");
         Assert.IsGreaterThan(ff.ChestRate, all.ChestRate, $"先行にトルクを足すとさらに速い: {all.ChestRate:F2} 対 {ff.ChestRate:F2}");
