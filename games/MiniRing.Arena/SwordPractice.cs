@@ -100,6 +100,7 @@ internal static class SwordPractice
             Pacing = style.Pacing,
             RearLength = FormSwordsman.RearLength(weapon, arm),
             OffhandRadius = offhand,
+            BladeCut = style.BladeCut,
         };
         var corners = SwordTraining.Corners(weapon, Math.Clamp(technique.Range, SwordTraining.MinGap, SwordTraining.Ring.Size - 1.127f), who.Wear, SwordTraining.Defenseless) with
         {

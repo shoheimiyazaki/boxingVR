@@ -218,7 +218,7 @@ public sealed class BoxerBot : IFighterControl
     /// ボットの判断の仕組みの版。スタイルの値が同じでも、仕組みが変われば同じ入力から違う試合になるので、記録はこの版を持ち、違う版の記録は再生しない。
     /// 変えたら 1 増やし、docs/VERSIONS.md の先頭に 1 行足す。
     /// </summary>
-    public const int LogicVersion = 76; // 拳の間合いを両肩から相手のあごまでで測る（ReachGap、76）。履歴は docs/VERSIONS.md
+    public const int LogicVersion = 77; // 剣士の刃の通り道（BladeCutChooser、切り替えの値 WeaponStyle.BladeCut、既定は型のまま。77 仮）。履歴は docs/VERSIONS.md
     private ClawBot? _claws;
     private readonly HandShape[] _shapes = new HandShape[2];
     private KickTechnique? _kick;

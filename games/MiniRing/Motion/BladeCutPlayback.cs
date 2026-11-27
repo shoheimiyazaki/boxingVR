@@ -19,11 +19,11 @@ public sealed class BladeCutPlayback
     public float Elapsed => _elapsed;
 
     /// <summary>Request の座標は sense.Self 基準。実際の握りと腕の寸法から計画する。</summary>
-    public bool TryStart(Hand hand, in FighterSense sense, BladeCutRequest request)
+    public bool TryStart(Hand hand, in FighterSense sense, BladeCutRequest request, float contactFraction = 0.8f)
     {
         if (Plan is not null || sense.SelfDowned || sense.BladeGrip(hand) is not { } grip ||
             sense.BladeArm(hand) is not { } arm ||
-            !BladeCutGeometry.TryFromWeapon(grip.Kind, hand, grip.Support.HasValue, out var geometry,
+            !BladeCutGeometry.TryFromWeapon(grip.Kind, hand, grip.Support.HasValue, out var geometry, contactFraction: contactFraction,
                 remainingFraction: grip.RemainingFraction, gripLocal: grip.GripLocal, supportOffset: grip.SupportOffset) ||
             !BladeCutPlan.TryCreate(request, geometry, grip.Pose, arm,
                 grip.Support is { } support ? sense.BladeArm(support) : null, out var plan))

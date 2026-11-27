@@ -238,3 +238,7 @@ dotnet run --project games/MiniRing.Arena -c Release -- swordlib --bouts 4 --sec
 - 試し方: `handlelab --pairs bat:jin,bat:sean,bat:bat`（`bat` は名簿に無い試験用のキャラ。jin の体でバットを持つ）、`video --red-weapon bat`、`imitate --weapon bat [--only chop]`、`selfpath --forms yes`、`aimlab --forms yes`。
 - 型は目標の経路。体が追いきれない所は 2 つ: 斜めの振り下ろし（`chop-right`・`chop-left`）で棒の先が目標から最大 1.1 腕遅れる（imitate の測定）、脚の高さ（腿・すね）は 21 cm の棒では届きにくい。近道は `CLAUDE.md` §8「バットの型」。
 - 測定と採否は `docs/BOT_PDCA.md`「バットの型」、`docs/arena/bat_forms_*.md`。型の動画 `docs/video/bat_forms_all.mp4`（コマの抜粋は同じ場所の `bat_forms_*_frames.jpg`）。
+
+## 11. 刃の通り道で切る（`BladeCutChooser`、2026-11-28、LogicVersion 77 仮）
+
+`WeaponStyle.BladeCut`（`BladeCutStyle`）を書くと、剣士は選んだ技の型の打ちの始めで、狙いと振る面を選んで `Motion.BladeCutPlan` の円弧で武器の手だけを振る（足・胴のひねり・頭は型のまま）。型は振る面と狙う高さの好み（`CutPreference`）になる。選び方の式と測った結果は `docs/BOT_PDCA.md`「刃の通り道で切る剣士」。既定は null（型のまま）。円弧は肩の届く範囲の中だけを通るので型より刃先が遅く、1 振りの無力化は型に及ばない（自分の体を斬らない点は良い）。

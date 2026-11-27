@@ -118,6 +118,8 @@
 
 ## LogicVersion（`BoxerBot.LogicVersion`）
 
+- **77**（2026-11-28、仮番号、枝 `claude/blade-cut-bots`。Codex の枝 `claude/priceless-faraday-45d51b` の `BladeCutPlan` を取り込んだ）: 剣士のボットに刃の通り道で切るやり方（`BladeCutChooser`、`WeaponStyle.BladeCut`・`SwordsmanBot.BladeCut`）。型の打ちの始めで、狙い（相手の部位）× 振る面（型の面を前の軸で回した候補）× 通す深さ × 足で詰める距離を同じ式で点にして、届く円弧の最高点を `BladeCutPlan` で振る（足・胴・頭は型のまま）。既定は null（型のまま）で、名簿・教科書の試合は今までと同じ。`FighterSense` に `SelfBladeArm*`・`SelfBladeGrip*`（Codex）。
+
 - **76**（2026-11-27、仮番号、枝 `claude/base-body-v2`。統合役の指定）: 拳の間合いを胸と胸の距離ではなく**届く間合い**（自分の両肩それぞれから相手のあごまでの水平な距離の平均 ÷ 腕の長さ、`Bots.ReachGap`）で測る。`AttackRange`・`NeutralRange`・`EngageRange` と投げ・組み付き・止めのジャブの間合い、間合いの層（`RangeSense`: 相手の両肩から自分のあごまで、`RangeThreat`・`EvadeReach`）、相手の打ち始めの間合い（`OpponentRead.AttackDistance`）が同じ物差し。前の体（145 cm）で構えて測った対応（`ReachRangeProbe`: 胸と胸 c → 0.9703 c − 0.0130、前の間合いの層の物差し t → 0.9879 t − 0.0580）で、スタイル・名簿の教育・IVF の新人の生成の範囲の値を移した。戦略の表（胸と胸の cm）は今の「届く間合い ÷ 胸と胸」で直す。蹴り・肘の届く間合いはドリルで胸と胸で測った値のまま。`FighterSense` に `SelfBody`・`SelfChin` を足した。
 
 - **75**（2026-11-25、枝 `claude/priceless-faraday-45d51b`、ユーザーの依頼「スタミナの総消費を抑え、偏らず全身を使い、滑らかで速く刃筋の揃った爪の先の軌道」）: 鎌の振りに体を使う教育の値 `ClawPull`（振っていない手の引き手。分割胴は `TwistBias` を肘打ちでしか使わないので、両手の目標の差でひねる）・`ClawStep`（振り抜きで脚のバネを前へ）・`ClawSpring`（振り抜きで体のバネを拳へ）。どれも既定 0 で、教育が空なら今までと同じ振り。振りの拍子は `ClawStroke.Swing`。
