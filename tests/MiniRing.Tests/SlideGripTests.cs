@@ -85,6 +85,9 @@ public sealed class SlideGripTests
 
     private const float RightX = 0.5f * Weapon.StaffHandSpacing;
 
+    /// <summary>前の手の目標を握りの間隔より広げる量 [m]（<see cref="WhenTheHandTargetsAreFurtherApartThanTheGrips_TheHandNearerTheMiddleSlides_TheOuterOneStays"/>）。</summary>
+    private const float Stretch = 0.169f;
+
     [TestMethod]
     public void ASlidingHand_DoesNotPushTheStaff()
     {
@@ -221,8 +224,10 @@ public sealed class SlideGripTests
         // （同じ下げる量だと両手の目標の開きが腕の届く幅を越え、外の手まで滑った）。
         var back = 0.338f - (Weapon.StaffHandSpacing - 0.3099f);
         using var rig = new Rig(LeftMovedBack(back, (step, g, r) =>
-            // 前の手の目標を棒に沿って 28 cm 前へ: 目標の距離が握りの間隔より 28 cm 広い。
-            step < 554 ? g : g with { Right = g.Right with { TargetLocal = r.On(RightX + 0.2817f) } }));
+            // 前の手の目標を棒に沿って 17 cm 前へ: 目標の距離が握りの間隔より 17 cm 広い。2026-11-27（基準の体）: 28 → 17 cm。基準の体の肩（胸 40 cm 幅）では、28 cm 広げると
+            // 外の手（左）まで 5 cm 滑った（-0.413 → -0.465）。両手の目標の開きが腕の届く幅を越える境は 22 cm で外の手が 2 cm、17 cm 以下では 0（17・12・6 cm で確かめた）。
+            // 境の下では外の手は動かず、前の手が目標の分だけ滑る（0.235 → 0.405）。
+            step < 554 ? g : g with { Right = g.Right with { TargetLocal = r.On(RightX + Stretch) } }));
         rig.Run(553);
         var leftBefore = rig.Cpu.GripX(Hand.Left);
         var rightBefore = rig.Cpu.GripX(Hand.Right);
@@ -234,7 +239,7 @@ public sealed class SlideGripTests
         var leftAfter = rig.Cpu.GripX(Hand.Left)!.Value;
         var rightAfter = rig.Cpu.GripX(Hand.Right)!.Value;
         Assert.AreEqual(leftBefore.Value, leftAfter, 2.817e-4f, "the outer hand does not move on the staff");
-        Assert.AreEqual(rightBefore.Value + 0.2817f, rightAfter, 0.0845f, "the hand nearer the middle slid toward the front end to widen the grips");
+        Assert.AreEqual(rightBefore.Value + Stretch, rightAfter, 0.0845f, "the hand nearer the middle slid toward the front end to widen the grips");
     }
 
     [TestMethod]

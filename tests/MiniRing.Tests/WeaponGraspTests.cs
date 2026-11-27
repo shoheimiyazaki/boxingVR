@@ -123,8 +123,11 @@ public sealed class WeaponGraspTests
         Play(game, 1.678f);
         Assert.IsTrue(game.Player.WearsGlove(Hand.Left), "the empty left hand is a bare fist once it has moved off the handle");
 
-        // 左手を柄へ持っていって Grip（まだ押さない間は添えない）。右手は刀を両手の構えの中央へ運ぶ（GuardSpot の説明）。
-        script.RightAt = () => Vector3.Lerp(GuardSpot(game, Hand.Left), GuardSpot(game, Hand.Right), 0.5f);
+        // 左手を柄へ持っていって Grip（まだ押さない間は添えない）。右手は刀を両手の構えの自分の位置へ運ぶ（GuardSpot の説明）。
+        // 2026-11-27（基準の体）: 両手の構えの中央（Lerp 0.5）へ運ぶと、基準の体の肩幅（胸 40 cm）では左肩から添える所まで 64.3 cm で、腕 58.1 cm の先 5.8 cm に届かず（拳と握りの距離
+        // 5.8 cm のまま 1.6 秒止まる。握れる 5.63 cm に 2 mm 足りない）、添えられなかった。右手を自分の構えの位置（1.0）へ運べば、左肩から握りまで 59.8 cm で、拳は握りから 0.6 cm まで来て握る。
+        // 両手の構えの右手の位置は、ボットが両手で持つときの位置そのもの（届くように作られた位置）。
+        script.RightAt = () => GuardSpot(game, Hand.Right);
         var spacing = FormSwordsman.Spacing(Katana) * game.Player.ArmReach;
         // 添える所は柄の上: 刃の側の握りから柄頭の側へ通常の間隔、柄頭の端より先へは行かない（TryAddSupport と同じ。2026-11-25 まで柄頭の先の点を狙わせていた:
         // 前の刀は垂れて肩から届き、握る所へ手を伸ばし直していたので気付かなかった）。

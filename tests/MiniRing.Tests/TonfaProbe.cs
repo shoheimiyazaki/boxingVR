@@ -123,7 +123,7 @@ public sealed class TonfaProbe
     [TestMethod]
     public void SwordAtTheGuard_TechniqueScan_Probe()
     {
-        foreach (var name in FormSwordsman.Techniques(WeaponKind.Katana, 0.5296f).Select(t => t.Name))
+        foreach (var name in FormSwordsman.Techniques(WeaponKind.Katana, 0.581f).Select(t => t.Name))
         {
             var g = TonfaTests.SwordAtTheGuard(HandWear.Glove, 1, name);
             var t = TonfaTests.SwordAtTheGuard(HandWear.Tonfa, 1, name);
