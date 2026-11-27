@@ -18,6 +18,7 @@ public sealed class UprightSeedProbe
     private static readonly float[] TipHz = [0f, 2f];
     private static readonly int[] RushSeeds = [3, 4, 5];
     private static readonly bool[] TwoHands = [true, false];
+    private static readonly float[] SlipWindows = [3.0f, 3.3f, 3.6f];
     private static readonly float[] AxeScales = [0.85f, 0.9f, 0.95f, 1f, 1.05f, 1.1f, 1.15f];
 
     /// <summary>生成直後から構えのまま 5 秒: 骨盤の水平の流れの時系列と、足の運びの歩数（FighterPhysicsTests.Standing と同じ場面）。</summary>
@@ -279,6 +280,22 @@ public sealed class UprightSeedProbe
         }
 
         Console.WriteLine($"HEEL started {started} kept {kept} | " + string.Join(" ", rows));
+    }
+
+    /// <summary>EvasionBasicsTests の初撃の窓: 窓の長さを振って、種 1〜8 の拳の数（open / slip）。</summary>
+    [TestMethod]
+    public void SlipWindow()
+    {
+        var inside = new DefenseMove { HeadX = 0.5f, HeadY = -0.5f, HeadZ = -0.2f, Step = 1f, Duration = 0.5035f, Rate = 35.75f, HandsUp = 0.3f, VsStraight = 1f };
+        var book = DefenseBook.Default.With(Defense.Duck, inside);
+        static void KeepFresh(BoxingGame game, BoxerBot _) { game.Player.Stamina = 1f; game.Cpu.Stamina = 1f; }
+        foreach (var window in SlipWindows)
+        {
+            var open = Enumerable.Range(1, 8).Select(seed => DefenseDrill.Punch("2", Defense.Duck, DefenseDrill.Defender(book, defend: false, counters: false), seed: seed, seconds: window, telegraph: 0.1343f, observe: KeepFresh)).ToArray();
+            var slip = Enumerable.Range(1, 8).Select(seed => DefenseDrill.Punch("2", Defense.Duck, DefenseDrill.Defender(book, defend: true, counters: false), seed: seed, seconds: window, cue: 0f, telegraph: 0.1343f, observe: KeepFresh)).ToArray();
+            float Head(PunchDrillResult[] r) => r.Sum(x => x.HeadHits + x.OpenHeadHits) / (float)Math.Max(1, r.Sum(x => x.Punches));
+            Console.WriteLine($"SLIPWIN {window}: open {string.Join(",", open.Select(r => r.Punches))} head {Head(open):P0} | slip {string.Join(",", slip.Select(r => r.Punches))} head {Head(slip):P0}");
+        }
     }
 
     [TestMethod]
