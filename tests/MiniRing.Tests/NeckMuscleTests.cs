@@ -14,7 +14,7 @@ public sealed class NeckMuscleTests
 {
     private static float Threshold(VoxelGrid grid, Vector3 point, Vector3 dir, float tone, int axis = 1, (int, int)? slices = null)
     {
-        float lo = 0f, hi = 20000000f; // 2026-11-27: 上限 20 万 N → 2000 万 N（基準の体の首は 20 万 N でも折れず、どちらも上限で同値になっていた）
+        float lo = 0f, hi = 200000f;
         for (var i = 0; i < 40; i++)
         {
             var mid = 0.5f * (lo + hi);
@@ -65,7 +65,9 @@ public sealed class NeckMuscleTests
         var grid = Head(game);
         // 種 15（champion – swarmer、4.94 s）の接触: 首の上の段の横の皮膚を、グローブが首の柱から 6.5 cm 横で下から斜め上へ押した。
         // 骨だけでは 42 N で折れる（その接触は 33 N で骨の強さの 0.78 倍）。測った（2026-11-20、人形の単位。実物大で約 10 倍）: 張り 1 で 54 N、0 で 44 N。
-        var at = new Vector3(-0.0637f, -0.0487f, -0.00394f);
+        // 2026-11-27（基準の体）: 接触の高さは首の上の段（NeckSlices.High）の中心に置く（頭の格子は 7 mm 格子の顔の層で高さの刻みが変わり、前の -0.0487 は首の段の 1 つ上 = 頭の中になった。
+        // 首の段の外に当てると曲げの梁にならず 20 万 N でも折れない）。横 6.5 cm（首の横の皮膚の端）はそのまま。
+        var at = new Vector3(-0.0637f, grid.CellCenter(0, BoxerSpine.NeckSlices.High, 0).Y, -0.00394f);
         var dir = Vector3.Normalize(new Vector3(19.97f, 20.90f, 15.16f));
         var braced = Threshold(grid, at, dir, tone: 1f);
         var slack = Threshold(grid, at, dir, tone: 0f);

@@ -40,13 +40,13 @@ public sealed class StandardBodyStrengthTests
         var leg = m.Thigh + m.Shin + foot;
         var muscles = new (string Name, float Expected, float Placed)[]
         {
-            ("腕", StandardBodyStrength.Shoulder / (arm / 3.30f), StandardBodyStrength.ArmMuscle),
-            ("胴", StandardBodyStrength.Trunk / ((m.Pelvis + m.Chest) / 30f), StandardBodyStrength.TrunkMuscle),
+            ("腕", StandardBodyStrength.Shoulder / (arm / 3.30f) * StandardBodyStrength.ArmWork, StandardBodyStrength.ArmMuscle),
+            ("胴", StandardBodyStrength.Trunk / ((m.Pelvis + m.Chest) / 30f) * StandardBodyStrength.TrunkWork, StandardBodyStrength.TrunkMuscle),
             ("脚", (StandardBodyStrength.Hip + StandardBodyStrength.Knee + StandardBodyStrength.Ankle) / 3f / (leg / 13f), StandardBodyStrength.LegMuscle),
         };
         foreach (var (name, expected, placed) in muscles)
         {
-            Assert.AreEqual(expected, placed, 0.03f, $"{name}の筋の量: トルクの比 ÷ 質量の比 {expected:0.000}");
+            Assert.AreEqual(expected, placed, 0.03f, $"{name}の筋の量: トルクの比 ÷ 質量の比 × 仕事の補正 {expected:0.000}");
         }
     }
 }

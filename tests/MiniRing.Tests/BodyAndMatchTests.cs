@@ -82,10 +82,8 @@ public sealed class BodyAndMatchTests
         Blow(game, f, height: -0.9f, side: 0.6f); // 肋骨の下: 肝臓・腸に近い
         Console.WriteLine($"core {f.Core:0.00}, tone {toneBefore:0.00} → {f.Tone:0.00}, consciousness {f.Consciousness:0.00}");
         Assert.IsGreaterThan(0.99f, f.Consciousness, "the head is clear");
-        // 2026-11-27（基準の体）: 肝臓への 1 発の後の体の張り（Core）0.777（前は 0.75 未満）。上限 0.75 → 0.8（頭が澄んだまま脚の張りが抜ける、の順序）。
-        Assert.IsLessThan(0.8f, f.Core);
-        // 同じ大きさの 1 発（Blow）でも、実測の質量の体（前の 2.2 倍）は動かされ方が小さく、張りの落ちは 0.17（前は 0.2 超）。膝が抜ける（落ちる）順序を 0.15 で見る。
-        Assert.IsLessThan(toneBefore - 0.15f, f.Tone, "the knees go");
+        Assert.IsLessThan(0.75f, f.Core);
+        Assert.IsLessThan(toneBefore - 0.2f, f.Tone, "the knees go");
     }
 
     [TestMethod]

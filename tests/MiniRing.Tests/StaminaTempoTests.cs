@@ -152,9 +152,7 @@ public sealed class StaminaTempoTests
         }
 
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"one-hand strong pace for 50.4 s: stamina {rig.Fighter.Stamina:P1}, P {rig.Fighter.RecentMusclePower:F2} W"));
-        // 2026-11-27（基準の体: 質量が実測で前の 2.2 倍）: 50 秒後の蓄えは 21 %（前は 0.3 超）。1 発の仕事が質量に比例して増え、片手の強い拳の拍子でも蓄えは減っていく
-        // が、尽きてはいない。下限 0.3 → 0.15（スタミナの定数を質量に合わせて引き直すのは docs/plans/BASE_BODY_PLAN.md §10 の残り）。
-        Assert.IsGreaterThan(0.15f, rig.Fighter.Stamina);
+        Assert.IsGreaterThan(0.3f, rig.Fighter.Stamina);
     }
 
     /// <summary>

@@ -66,11 +66,9 @@ public sealed class TrunkTwistTests
         var ff = Mean(feedForward);
         var all = Mean(both);
 
-        // 2026-11-27（基準の体）: 変更前の体の胸は 3.5 rad/s（前は 3 未満）。人の 8〜12 には遠いまま。上限 3 → 4。
-        Assert.IsLessThan(4f, baseline.ChestRate, $"変更前の体の胸は遅い（人 8〜12 rad/s）: {baseline.ChestRate:F2}");
+        Assert.IsLessThan(3f, baseline.ChestRate, $"変更前の体の胸は遅い（人 8〜12 rad/s）: {baseline.ChestRate:F2}");
         Assert.IsGreaterThan(baseline.ChestRate * 1.4f, strong.ChestRate, $"トルクを上げると胸が速く回る: {strong.ChestRate:F2} 対 {baseline.ChestRate:F2}");
-        // 2026-11-27（基準の体）: 先行で 4.27 対 3.45（1.24 倍）。変更前の体の胸が速くなった（3.45）ので、1.4 倍 → 1.2 倍で「先行で速くなる」順序を見る。
-        Assert.IsGreaterThan(baseline.ChestRate * 1.2f, ff.ChestRate, $"目標の速さの先行で胸が速く回る: {ff.ChestRate:F2} 対 {baseline.ChestRate:F2}");
+        Assert.IsGreaterThan(baseline.ChestRate * 1.4f, ff.ChestRate, $"目標の速さの先行で胸が速く回る: {ff.ChestRate:F2} 対 {baseline.ChestRate:F2}");
         Assert.IsGreaterThan(ff.ChestRate, all.ChestRate, $"先行にトルクを足すとさらに速い: {all.ChestRate:F2} 対 {ff.ChestRate:F2}");
         Assert.IsGreaterThan(baseline.ShoulderForward, all.ShoulderForward, $"胸が速く回ると肩が前へ出る: {all.ShoulderForward:F2} 対 {baseline.ShoulderForward:F2}");
         Assert.IsGreaterThan(4f, all.ChestRate, $"既定の体の胸は 4 rad/s を超えて回る: {all.ChestRate:F2}");

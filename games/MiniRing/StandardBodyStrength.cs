@@ -42,11 +42,22 @@ public static class StandardBodyStrength
     // 上のトルクの置き直しと同じ比で筋の量を置き直す（部位の質量の比で割った分が、部位の質量に掛ける筋の割合の置き直し）。
     // 置き直さないと、強くなった筋の仕事が前の量の蓄えから出て、片手の強い拳を 1 秒ごとに 50 秒で胴の蓄えが尽きた（StaminaRegionProbe: 胴 112 W 対 前 70 W）。
 
-    /// <summary>腕の筋の量: 肩の比 ÷ 腕の質量の比（上腕 + 前腕 3.30 → 3.05 kg）。</summary>
-    public const float ArmMuscle = 1.138f;
+    // 筋の量 = 最大トルクの比 ÷ 質量の比 × 仕事の補正。補正は「同じ強い拳を 50 秒打ち続けて筋がした仕事の比 ÷ 蓄えの容量の比」（StaminaRegionProbe、片手の強い拳を 1 秒ごと、
+    // 前の体 → 今の体）。トルクの比（質量 × てこ）だけでは、体が大きくなって同じ角速度で振る拳の仕事（質量 × 長さ²）の増えを数えきれず、
+    // 容量の比（腕 1.05・胴 1.52）より仕事の比（腕 1.12・胴 1.62）が大きく、50 秒の蓄えが前の 43 % から 21 % へ減った（StaminaTempoTests）。
+    // 筋の体積は筋がする仕事の量に比例するので、測った仕事の比へ合わせる（見えない倍率ではなく、筋の量の換算の置き直し）。
 
-    /// <summary>胴の筋の量: 胴の比 ÷ 胴の質量の比（骨盤 + 胴 30 → 33.9 kg）。</summary>
-    public const float TrunkMuscle = 1.344f;
+    /// <summary>腕の筋の量の仕事の補正: 50 秒の仕事 8305 → 9283 J（1.118）÷ 容量 3960 → 4160 J（1.051）。</summary>
+    public const float ArmWork = 1.064f;
+
+    /// <summary>胴の筋の量の仕事の補正: 50 秒の仕事 4727 → 7667 J（1.622）÷ 容量 2160 → 3281 J（1.519）。</summary>
+    public const float TrunkWork = 1.068f;
+
+    /// <summary>腕の筋の量: 肩の比 ÷ 腕の質量の比（上腕 + 前腕 3.30 → 3.05 kg）× <see cref="ArmWork"/>。</summary>
+    public const float ArmMuscle = 1.138f * ArmWork;
+
+    /// <summary>胴の筋の量: 胴の比 ÷ 胴の質量の比（骨盤 + 胴 30 → 33.9 kg）× <see cref="TrunkWork"/>。</summary>
+    public const float TrunkMuscle = 1.344f * TrunkWork;
 
     /// <summary>脚の筋の量: 股・膝・足首の比の平均 ÷ 片脚の質量の比（もも + すね + 足 13 → 15.1 kg）。</summary>
     public const float LegMuscle = 1.113f;
