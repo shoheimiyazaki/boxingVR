@@ -781,7 +781,9 @@ public sealed class Weapon
     private const float StaffTipInset = 0.02817f;
 
     /// <summary>
-    /// 両手の間隔 [m]: 肩幅ほど（肩の幅 30 cm。人形の単位で測った 10.7 cm の換算。<c>docs/BOJUTSU.md</c>）。棒は両手のてこで回すので、間隔が広いほど向きの指令が楽。
+    /// 両手の間隔 [m]: 肩幅ほど（前の基準の体の肩の幅 31 cm。<c>docs/BOJUTSU.md</c>）。棒は両手のてこで回すので、間隔が広いほど向きの指令が楽。
+    /// 2026-11-27: 基準の体の肩幅は 40 cm になったが、40 cm にすると棒の型の経路（腕の長さの単位）が体に入り・手が届かなくなった（BojutsuTests）。
+    /// 型を新しい体の比で書き直すまで前の値（BASE_BODY_PLAN §8.9）。
     /// </summary>
     public const float StaffHandSpacing = 0.3099f;
 

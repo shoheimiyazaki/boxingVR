@@ -15,7 +15,14 @@ namespace MiniRing.Tests;
 [TestCategory("slow")]
 public sealed class BojutsuTests
 {
-    private static readonly float ArmReach = 0.5296f;
+    /// <summary>基準の体の腕の長さ（値を写さず、基準の体から読む）。</summary>
+    private static readonly float ArmReach = StandardArmReach();
+
+    private static float StandardArmReach()
+    {
+        using var game = new BoxingGame(seed: 1);
+        return game.Player.ArmReach;
+    }
 
     private sealed class Scripted(Func<FighterSense, FighterCommand> read) : IFighterControl
     {

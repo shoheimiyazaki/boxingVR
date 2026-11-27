@@ -39,18 +39,22 @@ public sealed record FighterTuning
     /// 基準の体（比 1・<see cref="Scale"/> 1）の部位の箱の半分の寸法 [m]（2026-11-27、docs/plans/BASE_BODY_PLAN.md §2）: 身長 175 cm・体重 ≈ 75 kg（BMI 24.5）の
     /// 実物のボクサーの比。長さは人体計測の平均（成人男性、身長に対する比: 頭 0.13・膝の高さ 0.28・股関節の高さ 0.52・上腕 0.19・前腕 0.15・足 0.15）、
     /// 太さ（X・Z）は、ボクセルで実測した部位の質量（<see cref="Masses"/>）が実物の質量の配分（de Leva 1996: 頭 ≈ 6%・胴 ≈ 44%・上腕 2.7%・前腕 1.6%・
-    /// もも 14%・すね 4.3%・足 1.4%）に近くなる値（ローポリの形は箱の 5〜6 割を埋める）。肩の半幅 0.195 m（肩幅 ≈ 0.23 × 身長）・胴の厚み 0.234・腰の幅 0.34。
+    /// もも 14%・すね 4.3%・足 1.4%）に近くなる値（ローポリの形は箱の 5〜6 割を埋める）。肩の半幅 0.20 m（肩幅 ≈ 0.23 × 身長）・胴の厚み 0.245・腰の幅 0.344。
+    /// 2026-11-27: 体の中身を CT の体（boxer.vox）に戻したとき、生成の体より骨が細く（胴・もも）体重が 71.6 kg になったので、胴・骨盤・もも・すねの太さを
+    /// 格子のセルの数が変わらない範囲で太くして（胴の幅 2.6 %・厚み 4.5 %、骨盤の幅 1.2 %・厚み 4.5 %、もも 1.8 %・0.7 %、すね 7.3 %・2.3 %） 75 kg に戻した（BASE_BODY_PLAN §8.9）。
     /// 足の長さ 27 cm はかかと側とつま先の和（つま先は <see cref="FootGeometry.ToeShare"/>）。
     /// 2026-11-27 までは Aigis の既定の体（<see cref="HumanoidRagdoll.HalfExtents.Default"/>）に頭 × 0.8・腕の長さ × 1.18 を掛けた 145 cm の体で、
     /// 質量は部位の体積の比から別に出していた（BMI 32 相当の太さ）。
     /// </summary>
-    public static HumanoidRagdoll.HalfExtents StandardHalfExtents { get; } = HumanoidRagdoll.HalfExtents.Default with
-    {
-        // 段 1（体重の実測）の間は前の 145 cm の体（Aigis の既定 × 頭 0.8・腕の長さ 1.18）のまま。段 2 で 175 cm の表へ。
-        Head = HumanoidRagdoll.HalfExtents.Default.Head * 0.8f,
-        UpperArm = HumanoidRagdoll.HalfExtents.Default.UpperArm * new Vector3(1.18f, 1f, 1f),
-        Forearm = HumanoidRagdoll.HalfExtents.Default.Forearm * new Vector3(1.18f, 1f, 1f),
-    };
+    public static HumanoidRagdoll.HalfExtents StandardHalfExtents { get; } = new(
+        Pelvis: new Vector3(0.172f, 0.10f, 0.1223f),
+        Chest: new Vector3(0.20f, 0.24125f, 0.1223f),
+        Head: new Vector3(0.08f, 0.11375f, 0.10f),
+        UpperArm: new Vector3(0.178f, 0.0525f, 0.0525f),
+        Forearm: new Vector3(0.1425f, 0.045f, 0.045f),
+        Thigh: new Vector3(0.1018f, 0.23f, 0.1088f),
+        Shin: new Vector3(0.059f, 0.225f, 0.0665f),
+        Foot: new Vector3(0.05f, 0.04f, 0.135f));
 
     /// <summary>
     /// 関節の重なり代 [m]: 子の部位の箱が、関節から親の側へはみ出す長さ。Aigis の既定（3cm）は 1.7m の体用で、60cm の体では

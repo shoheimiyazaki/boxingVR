@@ -37,6 +37,19 @@ public sealed class VoxelMassTests
     }
 
     [TestMethod]
+    public void TheStandardBody_IsARealBoxersSize()
+    {
+        Assert.AreEqual(175, Characters.CharacterProfile.StandardHeightCm, "基準の身長");
+        Assert.AreEqual(75f, Characters.BodySizing.PhysicalMassKg(BodyBuild.Standard), 1.5f, "基準の体重（BMI ≈ 24.5）");
+        var masses = FighterTuning.Default.Masses;
+        var total = Characters.BodySizing.PhysicalMassKg(BodyBuild.Standard);
+        // 部位の配分は実物（de Leva 1996）に近い: 胴 ≈ 44%、もも ≈ 14%、頭 ≈ 6%。
+        Assert.AreEqual(0.44f, (masses.Pelvis + masses.Chest) / total, 0.05f, "胴の割合");
+        Assert.AreEqual(0.14f, masses.Thigh / total, 0.03f, "ももの割合");
+        Assert.AreEqual(0.06f, masses.Head / total, 0.02f, "頭の割合");
+    }
+
+    [TestMethod]
     public void WithWeight_LandsTheMeasuredWeightOnTheTarget_OnlyByTheThickness()
     {
         var frame = new BodyBuild(1.05f, 1.02f, 0.98f, 1f);

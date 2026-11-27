@@ -83,7 +83,7 @@ public sealed class MatchHighlights
         public Vector3 Chest;
         public Vector3 HeadVelocity;
         public readonly Flight?[] Flights = new Flight?[2];
-        public readonly bool[] Armed = [true, true];
+        public readonly bool[] Armed = [false, false];
         public bool Down;
         public float DownSince;
         public bool Dead;
@@ -219,7 +219,9 @@ public sealed class MatchHighlights
         s.FlurryUntil = float.NegativeInfinity;
         s.PreviousTwist = f.LastHeadTwist;
         s.DownSince = 0f;
-        s.Armed[0] = s.Armed[1] = true;
+        // 生まれた直後の腕は生成の姿勢から構えへ動いている途中で、拳が相手の方へ速く動いても打ち出しではない（2026-11-27: 基準の体の腕が長く速くなり、
+        // 構えへ動く途中の 0.03 秒で 4 本の拳が打ち出しの速さを超えて「打ち合い」が出た）。拳が一度止まってから（打ち出しの速さの半分より遅く）数える。
+        s.Armed[0] = s.Armed[1] = false;
         s.Down = f.IsKnockedDown;
         s.Dead = f.IsDead;
         s.Consciousness = f.Consciousness;

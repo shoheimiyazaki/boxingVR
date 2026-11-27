@@ -172,7 +172,8 @@ public sealed record RingLayout(float Size, float StartGap, ArenaShape Shape = A
     /// 中心から <paramref name="degrees"/> の向き（X 軸から Z 軸の向きへ測る。角の二等分線）の上で、角にいちばん近く、輪郭 <paramref name="footprint"/>
     /// （骨盤から見た、体と持ち物の格子の箱の角の水平のずれ: X, Z）のどの点も、場のどの面からも <see cref="BoundaryInset"/> ＋ <see cref="CornerClearance"/> 以上内側にある所。
     /// 面の法線 n、二等分線の向き u、中心からの距離 s、輪郭の点 q について n·(s u + q) ≤ Half − 厚み − 隙間 を、u に向いた面（n·u &gt; 0）ごとに解いた s の最小
-    /// （<see cref="EdgeDistance"/> と同じ面の並び）。場の形と持ち物の大きさだけで決まり、持ち物の種類は見ない。輪郭が場より大きければ中心に立つ。
+    /// （<see cref="EdgeDistance"/> と同じ面の並び）。向こう側の面（n·u &lt; 0）は同じ式で s の下限になる（長い武器の先が向こうの縁に触れない）。
+    /// 上限と下限の間が無ければ両方の真ん中、上限が負なら中心。場の形と持ち物の大きさだけで決まり、持ち物の種類は見ない。
     /// </summary>
     public Vector3 CornerFor(float degrees, IReadOnlyList<Vector2> footprint)
     {
@@ -182,10 +183,11 @@ public sealed record RingLayout(float Size, float StartGap, ArenaShape Shape = A
         var vertex = IsCage ? Circumradius : Half * MathF.Sqrt(2f); // 角（頂点）までの距離
         var limit = Half - BoundaryInset - CornerClearance;
         var reach = vertex;
+        var least = float.NegativeInfinity;
         foreach (var n in FaceNormals())
         {
             var toward = Vector2.Dot(n, u);
-            if (toward <= 1e-4f)
+            if (MathF.Abs(toward) <= 1e-4f)
             {
                 continue;
             }
@@ -196,10 +198,20 @@ public sealed record RingLayout(float Size, float StartGap, ArenaShape Shape = A
                 widest = MathF.Max(widest, Vector2.Dot(n, q));
             }
 
-            reach = MathF.Min(reach, (limit - widest) / toward);
+            // 角の側の面（n·u > 0）は角へ寄れる上限、向こう側の面（n·u < 0）は角から離れすぎない下限（長い武器の先が向こうの縁に触れない。
+            // 2026-11-27: 209 cm の konrad のロングソードの先が、素手の檻の向こう側の金網に 1 cm かかった）。
+            if (toward > 0f)
+            {
+                reach = MathF.Min(reach, (limit - widest) / toward);
+            }
+            else
+            {
+                least = MathF.Max(least, (limit - widest) / toward);
+            }
         }
 
-        reach = MathF.Max(0f, reach);
+        // 上限と下限の間があれば上限（角にいちばん近い所）。間が無ければ（二等分線の上では輪郭が収まらない）、角の側と向こう側に同じだけはみ出す真ん中。
+        reach = MathF.Max(0f, least <= reach ? reach : 0.5f * (least + reach));
         return Center + new Vector3(u.X * reach, 0f, u.Y * reach);
     }
 
