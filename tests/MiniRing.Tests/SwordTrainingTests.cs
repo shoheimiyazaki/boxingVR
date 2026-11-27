@@ -37,12 +37,14 @@ public sealed class SwordTrainingTests
         var between = Vector3.Distance(game.Player.Frame.Origin with { Y = 0f }, start with { Y = 0f });
         Assert.AreEqual(gap, between, 0.2254f, "始めは型の間で向き合う");
 
-        // 始めの約 1.7 秒は構えへ沈む（肩の中心が前へ十数 cm 出る）。そこから約 3.4 秒、歩かずにその場にいる。
+        // 始めの約 2 秒は構えへ沈む（肩の中心が前へ十数 cm 出る）。そこから約 2.5 秒、歩かずにその場にいる。
+        // 2026-11-27（物理 106 仮）: 沈む間の最後の踏み直しが 1.7 秒より後（2.0〜2.4 秒）にずれることがあり（物理 105 でも 2.0 秒まで動いていた）、
+        // 沈み終えた後は 0.3 cm 以内で止まっているので、沈み終えた 2.5 秒から見る。
         var settled = Vector3.Zero;
         for (var t = 0f; t < 5.035f; t += 1f / 240f)
         {
             game.Step(default, 1f / 240f);
-            if (settled == Vector3.Zero && t >= 1.678f)
+            if (settled == Vector3.Zero && t >= 2.518f)
             {
                 settled = game.Cpu.Frame.Origin;
             }
