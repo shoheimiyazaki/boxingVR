@@ -25,8 +25,8 @@ namespace MiniRing.Motion;
 /// </summary>
 public static class BatForms
 {
-    /// <summary>両手の間隔（腕の長さ = 1。<see cref="MiniRing.Weapons.Weapon.HandSpacing"/> 0.079 m ÷ 腕の長さ 0.53 m）。</summary>
-    public const float Spacing = 0.149f;
+    /// <summary>両手の間隔（腕の長さ = 1。<see cref="MiniRing.Weapons.Weapon.HandSpacing"/> 0.079 m ÷ 基準の体の腕の長さ 0.581 m。2026-11-27 まで ÷ 0.53 = 0.149: <c>FormSpacingTests</c>）。</summary>
+    public const float Spacing = 0.136f;
 
     /// <summary>構え: 両手を胸の前、棒を斜め上へ立てて頭の端を相手の顔のほうへ。</summary>
     public static readonly (Vector3 R, float Az, float El) Ready = (new Vector3(-0.25f, -0.15f, 0.6f), 0.15f, 0.8f);

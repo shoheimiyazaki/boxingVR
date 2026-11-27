@@ -18,8 +18,11 @@ namespace MiniRing.Motion;
 /// </summary>
 public static class StaffForms
 {
-    /// <summary>両手の間隔（腕の長さ = 1。<see cref="MiniRing.Weapons.Weapon.StaffHandSpacing"/> 0.31 m ÷ 腕の長さ 0.53 m）。</summary>
-    public const float Spacing = 0.585f;
+    /// <summary>
+    /// 両手の間隔（腕の長さ = 1。<see cref="MiniRing.Weapons.Weapon.StaffHandSpacing"/> 0.31 m ÷ 基準の体の腕の長さ 0.581 m）。握りの間隔は棒の形の値（m）なので、
+    /// 基準の体の腕が伸びたら腕の単位の値を割り直す（2026-11-27 まで ÷ 0.53 = 0.585。<c>FormSpacingTests</c> が m の値に戻ることを確かめる）。
+    /// </summary>
+    public const float Spacing = 0.5334f;
 
     /// <summary>構え（中段）: 右手を体の右の腰の前、前の端を相手の顔へ（棒の線は体の右側を通り、後ろの端は右の腰の後ろへ抜ける）。</summary>
     public static readonly (Vector3 R, float Az, float El) Chudan = (new Vector3(-0.3f, 0.0f, 0.85f), 0.4f, 0.1f);
