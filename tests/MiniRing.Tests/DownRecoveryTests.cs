@@ -45,13 +45,17 @@ public sealed class DownRecoveryTests
         // （前のつま先で 1.87・1.70・0.82 秒、固いつま先で 0.75・2.03 秒。ToeRegressionProbe.DeepKnockdownRise）。種 1 の 1 回で「1 秒より長い」を見ていたのを、
         // 種 1〜4 のうち、膝立ち（腰 4 割）のときにまだ意識が倒れる線より下だった回（= 意識が戻りながら起きた回）の平均で見る。数え終わってワールドが
         // 作り直された回は、新しいラウンドで意識が 1 に戻ってから立つので、ここで除かれる（種 2・3 がそう）。
+        // 2026-11-27（基準の体）: 数え終わって作り直された回を、意識の値でなくワールドの作り直しで除く（種 1 は作り直しの直前に腰が 4 割を越え、意識 0.20 の値が残って数えられていた）。
+        // 倒れるときの頭の打ち方で、10 カウントまでに意識が戻る種は 4 つ中 2 つ → 8 つ中 3〜4 つになった（背が高く胴の重い体）ので、種を 8 つに増やす。
         var rises = new List<float>();
         var wentLimp = 0;
-        foreach (var seed in new[] { 1, 2, 3, 4 })
+        foreach (var seed in Enumerable.Range(1, 8))
         {
             using var game = StillGame(seed: seed);
             var (ground, stand) = Settle(game);
-            game.Cpu.Concussion = 0.95f;
+            var knockedOut = game.Cpu;
+            knockedOut.Concussion = 0.95f;
+            var rebuilt = false;
 
             float? kneelAt = null, uprightAt = null, standingAt = null;
             var consciousnessWhenKneeling = 0f;
@@ -61,6 +65,7 @@ public sealed class DownRecoveryTests
             for (var t = 0f; t < 20.14f && standingAt is null; t += Dt)
             {
                 game.Step(default, Dt);
+                rebuilt |= game.Cpu != knockedOut; // 数え終わってワールドが作り直された（新しい体は意識 1 で立っている）
                 var f = game.Cpu;
                 var ratio = (f.PelvisPosition.Y - ground) / stand;
                 if (t > 0.8392f && f.Consciousness < FighterTuning.Default.LimpConsciousness)
@@ -96,7 +101,7 @@ public sealed class DownRecoveryTests
             Assert.IsNotNull(uprightAt);
             // 立ち直りの条件は意識が KnockoutConsciousness 以上（Fighter.TickDown）。起き上がろうとする試み（Stir）が腰を上げる分、線のすぐ上（0.33）で立つ。
             Assert.IsGreaterThanOrEqualTo(FighterTuning.Default.KnockoutConsciousness, consciousnessWhenStanding, "stands only once consciousness has come back above the knockout line");
-            if (consciousnessWhenKneeling < FighterTuning.Default.KnockoutConsciousness)
+            if (!rebuilt && consciousnessWhenKneeling < FighterTuning.Default.KnockoutConsciousness)
             {
                 rises.Add(uprightAt.Value - kneelAt.Value);
             }
