@@ -194,29 +194,36 @@ public sealed class UprightSeedProbe
     [TestMethod]
     public void GetUpTrace()
     {
-        foreach (var (seed, store) in new[] { (18, 1300f), (18, 1200f), (9, 1300f), (9, 1200f) })
+        foreach (var (seed, store) in new[] { (33, 1200f), (18, 1200f) })
         {
         var still = BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f };
         var game = new BoxingGame(FighterTuning.Default with { OxygenStorePerKg = store }, seed: seed, corners: new BoxingCorners("still", s => new BoxerBot(still, s), s => new BoxerBot(still, s)));
         for (var t0 = 0f; t0 < 2.518f; t0 += Dt) { game.Step(default, Dt); }
-        var cpu = game.Cpu;
+        
         using (game)
         {
-            DamageModelTests.Hit(game, cpu, DamageModelTests.Chin(cpu), mass: 12f, speed: 3.692f);
-            var (state, conc) = (cpu.State, cpu.Concussion);
+            DamageModelTests.Hit(game, game.Cpu, DamageModelTests.Chin(game.Cpu), mass: 12f, speed: 3.692f);
+            var (state, conc) = (game.Cpu.State, game.Cpu.Concussion);
             var line = new List<string>();
             for (var t = 0f; t < 26.85f; t += Dt)
             {
                 game.Step(default, Dt);
-                if (cpu.State != state || cpu.Concussion > conc + 0.05f)
+                if (game.Cpu.State == FighterState.GettingUp && (int)(t * 240f) % 240 == 0)
                 {
-                    line.Add($"{t:0.00} {cpu.State} conc {cpu.Concussion:0.00} twist {cpu.LastHeadTwist:0.0} cons {cpu.Consciousness:0.00} tone {cpu.Tone:0.00} pel {(cpu.PelvisPosition.Y - BoxingGame.RingSurfaceHeight) * 100:0}");
+                    var c = game.Cpu.Parts;
+                    float UpY(int id) => System.Numerics.Vector3.Transform(System.Numerics.Vector3.UnitY, game.World.GetState(id).Orientation).Y;
+                    line.Add($"  {t:0.0} GU pel {(game.Cpu.PelvisPosition.Y - BoxingGame.RingSurfaceHeight) * 100:0} up {game.Cpu.Uprightness:0.00} chestUp {UpY(c.Chest):0.00} pelUp {UpY(c.Pelvis):0.00} headY {(game.Cpu.HeadPosition.Y - BoxingGame.RingSurfaceHeight) * 100:0} cons {game.Cpu.Consciousness:0.00} tone {game.Cpu.Tone:0.00} feet {(game.World.GetState(game.Cpu.HeelId(0)).Position.Y - BoxingGame.RingSurfaceHeight) * 100:0}/{(game.World.GetState(game.Cpu.HeelId(1)).Position.Y - BoxingGame.RingSurfaceHeight) * 100:0}");
                 }
 
-                (state, conc) = (cpu.State, cpu.Concussion);
+                if (game.Cpu.State != state || game.Cpu.Concussion > conc + 0.05f)
+                {
+                    line.Add($"{t:0.00} {game.Cpu.State} conc {game.Cpu.Concussion:0.00} twist {game.Cpu.LastHeadTwist:0.0} cons {game.Cpu.Consciousness:0.00} tone {game.Cpu.Tone:0.00} pel {(game.Cpu.PelvisPosition.Y - BoxingGame.RingSurfaceHeight) * 100:0}");
+                }
+
+                (state, conc) = (game.Cpu.State, game.Cpu.Concussion);
             }
 
-            Console.WriteLine($"GETUPTRACE seed {seed} store {store}: end {cpu.State} cons {cpu.Consciousness:0.00} | " + string.Join(" | ", line.Take(12)));
+            Console.WriteLine($"GETUPTRACE seed {seed} store {store}: end {game.Cpu.State} cons {game.Cpu.Consciousness:0.00} | " + string.Join(" | ", line.Take(30)));
         }
         }
     }
@@ -332,16 +339,49 @@ public sealed class UprightSeedProbe
         Console.WriteLine("CHARGED " + string.Join(" ", rows));
     }
 
+    /// <summary>倒れた体: 意識が起き上がれる値（KnockoutConsciousness）へ戻った時刻・起き上がった時刻・負け（カウントアウトで試合が作り直された）時刻。種 1〜24。</summary>
     [TestMethod]
-    public void GetUp()
+    public void GetUpTiming()
     {
-        var (risen, down, n, stuck) = (0, 0, 0, 0);
-        foreach (var seed in Enumerable.Range(1, 36))
+        var k = FighterTuning.Default.KnockoutConsciousness;
+        var rows = new List<string>();
+        foreach (var seed in Enumerable.Range(1, 24))
         {
             var (game, cpu) = DamageModelTests.NewGame(seed);
             using (game)
             {
                 DamageModelTests.Hit(game, cpu, DamageModelTests.Chin(cpu), mass: 12f, speed: 3.692f);
+                var (downAt, consAt, upAt, outAt) = (-1f, -1f, -1f, -1f);
+                for (var t = 0f; t < 26.85f; t += Dt)
+                {
+                    game.Step(default, Dt);
+                    if (game.Cpu != cpu) { outAt = t; break; }
+                    if (downAt < 0f && cpu.State == FighterState.Down) { downAt = t; }
+                    if (downAt >= 0f && consAt < 0f && cpu.Consciousness >= k) { consAt = t; }
+                    if (downAt >= 0f && upAt < 0f && cpu.State == FighterState.Standing) { upAt = t; }
+                }
+
+                rows.Add($"{seed}:c{consAt:0.0}/u{upAt:0.0}/o{outAt:0.0}");
+            }
+        }
+
+        Console.WriteLine($"TIMING k {k}: " + string.Join(" ", rows));
+    }
+
+    [TestMethod]
+    public void GetUp()
+    {
+        var (risen, down, n, stuck) = (0, 0, 0, 0);
+        var concSum = 0f;
+        var risen6 = 0;
+        foreach (var seed in Enumerable.Range(1, 36))
+        {
+            var (game, cpu) = DamageModelTests.NewGame(seed);
+            using (game)
+            {
+                DamageModelTests.Hit(game, cpu, DamageModelTests.Chin(cpu), mass: float.Parse(Environment.GetEnvironmentVariable("GETUP_MASS") ?? "11", System.Globalization.CultureInfo.InvariantCulture), speed: 3.692f);
+                var firstConc = cpu.Concussion;
+                concSum += firstConc;
                 var (downAt, upAt) = (-1f, -1f);
                 for (var t = 0f; t < 26.85f; t += Dt)
                 {
@@ -360,12 +400,13 @@ public sealed class UprightSeedProbe
                 n++;
                 down += downAt >= 0f ? 1 : 0;
                 risen += upAt > 0f ? 1 : 0;
+                risen6 += upAt > 0f && seed <= 6 ? 1 : 0;
                 stuck += cpu.State == FighterState.GettingUp ? 1 : 0;
                 Console.WriteLine($"GETUP seed {seed}: down {downAt:0.00} up {upAt:0.00} cons {cpu.Consciousness:0.00} end {cpu.State}");
             }
         }
 
-        Console.WriteLine($"GETUP SUMMARY down {down}/{n} risen {risen}/{n} stuck {stuck}");
+        Console.WriteLine($"GETUP SUMMARY down {down}/{n} risen {risen}/{n} first-blow concussion mean {concSum / n:0.00} (seeds 1-6 risen {risen6})");
     }
 
     /// <summary>腰の強さが右ストレートに乗るか: 間合い 0.9〜1.2（13 本）× 種 1〜3 の合計で、標準と腰の弱い体（60 N·m）の溜めなしの右のエネルギー。</summary>
