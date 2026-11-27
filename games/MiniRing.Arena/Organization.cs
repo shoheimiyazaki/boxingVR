@@ -112,8 +112,15 @@ internal sealed record OrgEntry(MiniRing.Weapons.HandWear? Gear, bool Weapons, I
 /// <summary>階級（団体のファイルの <c>divisions</c>。軽い順）。</summary>
 /// <param name="Id">階級の id（王座の記録が引く）。</param>
 /// <param name="Name">画面と実況の名前（「ミドル級」「無差別級」）。</param>
-/// <param name="LimitKg">体重の上限 [kg]（その値ちょうどまで入る）。null なら上限なし（最も重い階級・無差別級）。</param>
-internal sealed record OrgDivision(string Id, string Name, int? LimitKg);
+/// <param name="LimitKg">体重の上限 [kg]（その値ちょうどまで入る。実物の階級は 0.1 kg 刻み: ライト級 61.2 など）。null なら上限なし（最も重い階級・無差別級）。</param>
+internal sealed record OrgDivision(string Id, string Name, float? LimitKg)
+{
+    /// <summary>この階級に入る最も重い整数の体重 [kg]（計量の体重は kg に丸めた値: <see cref="MiniRing.Characters.CharacterProfile.WeightOf"/>）。上限なしは null。</summary>
+    public int? MaxWholeKg => LimitKg is { } limit ? (int)MathF.Floor(limit + 1e-4f) : null;
+
+    /// <summary>画面の上限の書き方（61.2・73 のように、整数なら小数を付けない）。</summary>
+    public static string KgText(float kg) => kg.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
+}
 
 /// <summary>王座と試合の呼び方（<c>{org}</c>・<c>{division}</c> を差し込む）。</summary>
 /// <param name="Belt">王座の名前（「{org} {division}王座」）。</param>

@@ -287,7 +287,7 @@ internal static class OrgBouts
         if (org.HasWeightClasses)
         {
             lines.Add(string.Create(CultureInfo.InvariantCulture,
-                $"計量: {red.HudName} {WeightOf(red)} kg・{blue.HudName} {WeightOf(blue)} kg。{division.Name}（{(division.LimitKg is { } limit ? $"{limit} kg まで" : "上限なし")}）の試合。"));
+                $"計量: {red.HudName} {WeightOf(red)} kg・{blue.HudName} {WeightOf(blue)} kg。{division.Name}（{(division.LimitKg is { } limit ? $"{OrgDivision.KgText(limit)} kg まで" : "上限なし")}）の試合。"));
         }
 
         string Seat(FighterCharacter c) => standings.SeatOf(c.Id) is { } s ? $"{c.HudName}は{(s == "王者" ? org.BeltName(division) + "の王者" : $"ランキング{s}")}" : $"{c.HudName}はランキング外";

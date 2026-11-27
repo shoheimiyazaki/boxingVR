@@ -71,8 +71,8 @@ internal sealed record CampaignBoxer(FighterCharacter Character, CampaignCareer 
     /// <summary>計量の体重 [kg]（見えている体から）。</summary>
     public int WeightKg => OrgBouts.WeightOf(Character);
 
-    /// <summary>この骨格で目標にできる体重の範囲 [kg]。</summary>
-    public (int Min, int Max) WeightRange => BodySizing.WeightRange(Character.Build);
+    /// <summary>この骨格で目標にできる体重の範囲 [kg]（人のボクサーの太さの範囲: <see cref="CharacterMaker.Range"/>）。</summary>
+    public (int Min, int Max) WeightRange => BodySizing.WeightRange(Character.Build, CharacterMaker.Range.MinMuscle, CharacterMaker.Range.MaxMuscle);
 
     /// <summary>
     /// 試合を記録した新しいボクサー（席も動かす: <see cref="CampaignLadder.SeatAfter"/>）。<paramref name="rankedCount"/> はその階級の記録の順位の人数。
@@ -96,6 +96,12 @@ internal sealed record CampaignBoxer(FighterCharacter Character, CampaignCareer 
     {
         var from = WeightKg;
         if (targetKg == from) { return this; }
+        var (lo, hi) = WeightRange;
+        if (targetKg < lo || targetKg > hi)
+        {
+            throw new ArgumentOutOfRangeException(nameof(targetKg), targetKg, $"この骨格で目標にできる体重は {lo}〜{hi} kg です（人のボクサーの太さの範囲）。");
+        }
+
         var build = BodySizing.WithWeight(Character.Build, targetKg);
         var profile = Character.Profile is { } p ? p with { WeightKg = CharacterProfile.WeightOf(build) } : null;
         return new CampaignBoxer(Character with { Build = build, Profile = profile },

@@ -71,7 +71,7 @@
       "height": 1.1082,
       "arms": 0.979,
       "legs": 1.017,
-      "muscle": 0.9312
+      "muscle": 0.8697
     },
     "wear": "glove",
     "weapon": null
@@ -113,8 +113,8 @@
   ],
   "profile": {
     "age": 19,
-    "heightCm": 164,
-    "weightKg": 81,
+    "heightCm": 197,
+    "weightKg": 80,
     "birthplace": "メキシコ",
     "hometown": "モンテレイ",
     "stance": "オーソドックス",

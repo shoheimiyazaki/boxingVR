@@ -75,7 +75,7 @@
       "height": 1.0551,
       "arms": 1.042,
       "legs": 1.024,
-      "muscle": 0.9419
+      "muscle": 0.88
     },
     "wear": "glove",
     "weapon": null
@@ -118,8 +118,8 @@
   ],
   "profile": {
     "age": 19,
-    "heightCm": 156,
-    "weightKg": 72,
+    "heightCm": 188,
+    "weightKg": 71,
     "birthplace": "ウズベキスタン",
     "hometown": "タシケント",
     "stance": "オーソドックス",

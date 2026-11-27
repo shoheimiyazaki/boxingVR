@@ -90,11 +90,11 @@ public static class BodySizing
         return (build with { Muscle = muscle }).Validate();
     }
 
-    /// <summary>この骨格（身長・腕・脚）で作れる体重の範囲 [kg]（筋肉の太さが 0.6〜1.5 倍）。</summary>
-    public static (int Min, int Max) WeightRange(BodyBuild build)
+    /// <summary>この骨格（身長・腕・脚）で作れる体重の範囲 [kg]（筋肉の太さが <paramref name="minMuscle"/>〜<paramref name="maxMuscle"/> 倍、既定は 0.6〜1.5 倍）。</summary>
+    public static (int Min, int Max) WeightRange(BodyBuild build, float minMuscle = MinRatio, float maxMuscle = MaxRatio)
     {
         ArgumentNullException.ThrowIfNull(build);
-        return ((int)MathF.Ceiling(PhysicalMassKg(build with { Muscle = MinRatio })), (int)MathF.Floor(PhysicalMassKg(build with { Muscle = MaxRatio })));
+        return ((int)MathF.Ceiling(PhysicalMassKg(build with { Muscle = minMuscle })), (int)MathF.Floor(PhysicalMassKg(build with { Muscle = maxMuscle })));
     }
 
     /// <summary>体型（太さの比）とこの身長での体重 [kg]。体型を選んだときの体重の初めの値。</summary>

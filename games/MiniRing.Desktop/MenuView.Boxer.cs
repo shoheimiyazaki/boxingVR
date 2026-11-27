@@ -313,7 +313,7 @@ internal sealed partial class MenuView
         label(Invariant($"身長 {CharacterProfile.HeightOf(character.Build)} cm・作れる {lo}〜{hi} kg"), 326, 186, 14, Pale, maxWidth: PanelRight - 326);
         var org = MenuState.WeightOrg;
         label($"{org.LogoText} の階級（押すとその階級へ）", 326, 224, 14, Dim, maxWidth: PanelRight - 326);
-        var lower = 0;
+        var lower = 0f;
         for (var i = 0; i < org.Divisions.Count; i++)
         {
             var division = org.Divisions[i];
@@ -323,7 +323,7 @@ internal sealed partial class MenuView
             var then = org.DivisionOf(target) == division;
             plate(c.X, c.Y, size.X, size.Y, then ? new(0.30f, 0.26f, 0.08f, 1) : CardBlue, then ? new(0.18f, 0.14f, 0.03f, 1) : CardDeep, 3);
             frame(c.X, c.Y, size.X, size.Y, state.IsHovered(c, size) ? Cyan : then ? Gold : Edge, state.IsHovered(c, size) ? 2f : 1f, 3);
-            var range = division.LimitKg is { } limit ? Invariant($"〜{limit} kg") : Invariant($"{lower} kg 超");
+            var range = division.LimitKg is { } limit ? Invariant($"〜{OrgDivision.KgText(limit)} kg") : Invariant($"{OrgDivision.KgText(lower)} kg 超");
             var left = c.X - (size.X / 2) + 6;
             label(then ? "▶" : now ? "・" : "", left, c.Y - 8, 14, then ? Gold : Pale, shadow: false);
             label(division.Name, left + 18, c.Y - 8, 14, then ? Gold : now ? Pale : Dim, shadow: false);

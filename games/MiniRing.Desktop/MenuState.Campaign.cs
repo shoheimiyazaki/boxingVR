@@ -77,11 +77,12 @@ internal sealed partial class MenuState
     /// <summary>作る下書きの体の見込みを区別する鍵（体型と身長で体が決まる。教科書は体を変えない）。</summary>
     public string DraftPreviewKey => string.Create(System.Globalization.CultureInfo.InvariantCulture, $"create:{BodyTypeIndex}:{HeightCm}");
 
-    /// <summary>作れる身長の範囲 [cm]（体格の比 0.6〜1.5 の内側）。</summary>
+    /// <summary>作れる身長の範囲 [cm]（人のボクサーの範囲 <see cref="CharacterMaker.Range"/> と、体格の比 0.6〜1.5 の内側）。</summary>
     public static (int Min, int Max) HeightRange(float legs)
     {
         int Cm(float h) => CharacterProfile.HeightOf(new BodyBuild(h, 1f, legs, 1f));
-        return (Cm(BodySizing.MinRatio) + 1, Cm(BodySizing.MaxRatio) - 1);
+        var range = CharacterMaker.Range;
+        return (Math.Max(Cm(BodySizing.MinRatio) + 1, range.MinHeightCm), Math.Min(Cm(BodySizing.MaxRatio) - 1, range.MaxHeightCm));
     }
 
     /// <summary>置き場から読み直した一覧を入れる（作った・消した・試合の後）。選んでいたボクサーが消えていれば一覧へ戻る。</summary>

@@ -90,6 +90,12 @@ public sealed class CircuitTests
         foreach (var path in files)
         {
             var id = Path.GetFileNameWithoutExtension(path);
+            var version = System.Text.RegularExpressions.Regex.Match(File.ReadAllText(path), "\"generatorVersion\": *([0-9]+)");
+            if (version.Success && int.Parse(version.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture) != CircuitConfig.Of("ivf").GeneratorVersion)
+            {
+                continue; // 前の版の生成の新人（記録のハッシュで守るファイル）。作り直しと比べない
+            }
+
             Assert.IsTrue(generated.TryGetValue(id, out var p), $"{id} は今の種からは作られない");
             Assert.AreEqual(ProspectFactory.HashOf(p.Json), ProspectFactory.HashOf(File.ReadAllText(path)), $"{id} のファイルが作り直しと違う");
         }

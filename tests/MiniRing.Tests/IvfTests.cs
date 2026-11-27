@@ -47,10 +47,14 @@ public sealed class IvfTests
     {
         var ivf = Ivf;
         Assert.AreEqual("ライト級", ivf.DivisionOf(50).Name);
-        Assert.AreEqual("ライト級", ivf.DivisionOf(64).Name, "上限ちょうどはその階級");
-        Assert.AreEqual("ミドル級", ivf.DivisionOf(65).Name);
-        Assert.AreEqual("ライトヘビー級", ivf.DivisionOf(80).Name);
-        Assert.AreEqual("クルーザー級", ivf.DivisionOf(91).Name);
+        // 実物の階級の境（2026-11-27）: 61.2・72.6・79.4・90.7 kg。計量の体重は kg に丸めた整数。
+        Assert.AreEqual("ライト級", ivf.DivisionOf(61).Name, "上限の中の最も重い整数はその階級");
+        Assert.AreEqual("ミドル級", ivf.DivisionOf(62).Name);
+        Assert.AreEqual("ミドル級", ivf.DivisionOf(72).Name);
+        Assert.AreEqual("ライトヘビー級", ivf.DivisionOf(79).Name);
+        Assert.AreEqual("クルーザー級", ivf.DivisionOf(80).Name);
+        Assert.AreEqual("クルーザー級", ivf.DivisionOf(90).Name);
+        Assert.AreEqual("ヘビー級", ivf.DivisionOf(91).Name);
         Assert.AreEqual("ヘビー級", ivf.DivisionOf(300).Name);
         Assert.AreEqual("IVF ミドル級王座", ivf.BeltName(ivf.Division("middle")));
         Assert.AreEqual("ミドル級タイトルマッチ", ivf.BoutName(ivf.Division("middle"), titleBout: true));
@@ -62,8 +66,8 @@ public sealed class IvfTests
     public void OrgFile_RejectsUnorderedOrOpenEndedDivisions()
     {
         var json = OrgJson("ivf");
-        Assert.ThrowsExactly<InvalidDataException>(() => Load(json.Replace("\"limitKg\": 73", "\"limitKg\": 60", StringComparison.Ordinal)), "軽い順でない");
-        Assert.ThrowsExactly<InvalidDataException>(() => Load(json.Replace("\"limitKg\": 91", "\"limitKg\": null", StringComparison.Ordinal)), "上限なしが最後でない");
+        Assert.ThrowsExactly<InvalidDataException>(() => Load(json.Replace("\"limitKg\": 72.6", "\"limitKg\": 60", StringComparison.Ordinal)), "軽い順でない");
+        Assert.ThrowsExactly<InvalidDataException>(() => Load(json.Replace("\"limitKg\": 90.7", "\"limitKg\": null", StringComparison.Ordinal)), "上限なしが最後でない");
         Assert.ThrowsExactly<InvalidDataException>(() => Load(json.Replace("\"knockdownLimit\": 3", "\"knockdownLimit\": -1", StringComparison.Ordinal)));
         Assert.ThrowsExactly<InvalidDataException>(() => Load(json.Replace("\"gear\": \"glove\"", "\"gear\": \"boxing-glove\"", StringComparison.Ordinal)));
         Assert.ThrowsExactly<InvalidDataException>(() => Load(json.Replace("\"swarmer\",", "\"wrestler\",", StringComparison.Ordinal)));
@@ -80,7 +84,7 @@ public sealed class IvfTests
         Assert.AreEqual(joao.Profile!.WeightKg, OrgBouts.WeightOf(joao), "計量 = 見えている体の体重（プロフィールと同じ）");
 
         var (red, blue, division) = OrgBouts.Enter(ivf, joao, albert);
-        Assert.AreEqual("middle", division.Id);
+        Assert.AreEqual("lightheavy", division.Id, "joao 77 kg・albert 75 kg（基準の体 75 kg はライトヘビー級）");
         Assert.AreEqual(HandWear.Glove, blue.Wear, "素手のアルバートにもグローブを着ける");
         Assert.AreEqual(albert.Build, blue.Build, "体はそのまま");
 
@@ -105,10 +109,12 @@ public sealed class IvfTests
         // 手で作った名簿で見る（新人リーグで登録された選手は Circuit のテストが見る）。
         var handMade = MiniRing.Arena.Circuit.ProspectFactory.ReservedIds(CharacterRoster.All).ToHashSet();
         var ivf = OrgBouts.Pool(Ivf, CharacterRoster.All.Where(c => handMade.Contains(c.Id)));
-        // 2026-11-24: 体重 = 物理の体の質量（ramon 63 kg はライト級、yoandry 72 kg はミドル級）。
-        Assert.AreEqual("albert,joao,vikram,yoandry", string.Join(",", ivf["middle"].Select(c => c.Id)));
+        // 2026-11-27: 体重 = ボクセルで実測した体の質量、境は実物（ramon 69 kg はミドル級、基準の体の albert・vikram 75 kg と joao 77 kg はライトヘビー級、
+        // yoandry 80 kg はクルーザー級）。
+        Assert.AreEqual("ramon", string.Join(",", ivf["middle"].Select(c => c.Id)));
+        Assert.AreEqual("albert,joao,vikram", string.Join(",", ivf["lightheavy"].Select(c => c.Id)));
         Assert.AreEqual("dmitri,marcus", string.Join(",", ivf["heavy"].Select(c => c.Id)));
-        Assert.AreEqual("ramon", string.Join(",", ivf["light"].Select(c => c.Id)));
+        Assert.AreEqual("", string.Join(",", ivf["light"].Select(c => c.Id)));
 
         var wvc = OrgBouts.Pool(Organization.Of("wvc"), CharacterRoster.All);
         Assert.IsTrue(wvc["open"].All(c => c.Org == "wvc"));

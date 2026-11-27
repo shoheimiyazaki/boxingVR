@@ -1,40 +1,40 @@
 {
   "org": "ivf",
-  "asOf": "2026-11-25",
-  "basis": "階級ごとの総当たり（両コーナー × 種 1,2,3・5R・休み 17 秒）。physics 90・logic 65。2026-11-24 に体重を物理の体の質量にそろえて階級が変わった 2 人（ramon → ライト級、yoandry → ミドル級）は、試合をせずに移った階級のランキングの末尾へ。新人リーグ シーズン 1 の上位を末尾に登録",
+  "asOf": "2026-11-27",
+  "basis": "階級ごとの総当たり（両コーナー × 種 1,2,3・5R・休み 17 秒）。physics 90・logic 65。2026-11-24 に体重を物理の体の質量にそろえて階級が変わった 2 人（ramon → ライト級、yoandry → ミドル級）は、試合をせずに移った階級のランキングの末尾へ。新人リーグ シーズン 1 の上位を末尾に登録。2026-11-27 に基準の体を 175 cm・75 kg にして体重をボクセルの実測へ・階級の境を実物（61.2・72.6・79.4・90.7）にしたとき、階級が変わった選手は試合をせずに移った階級のランキングの末尾へ（前の順のまま）、王者が移って空いた王座はその階級の 1 位へ",
   "divisions": [
     {
       "division": "light",
       "champion": "andre-bishop",
       "ranking": [
-        "anan-inthasorn",
-        "ramon"
+        "anan-inthasorn"
       ]
     },
     {
       "division": "middle",
-      "champion": "albert",
+      "champion": "abel-navarrete",
       "ranking": [
-        "abel-navarrete",
-        "vikram",
         "ulugbek-nazarov",
-        "joao",
-        "yoandry"
+        "ramon"
       ]
     },
     {
       "division": "lightheavy",
       "champion": "sipho-van-wyk",
       "ranking": [
-        "gaston",
-        "daniyar-seitkali"
+        "daniyar-seitkali",
+        "albert",
+        "vikram",
+        "joao"
       ]
     },
     {
       "division": "cruiser",
       "champion": "prasert-rattanakul",
       "ranking": [
-        "ivan-escobedo"
+        "ivan-escobedo",
+        "yoandry",
+        "gaston"
       ]
     },
     {

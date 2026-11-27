@@ -226,7 +226,7 @@ internal static class CampaignLadder
             : new(CampaignGateKind.Other, 0, 0, reason);
     }
 
-    private static string Kg(int v) => v.ToString(CultureInfo.InvariantCulture) + " kg";
+    private static string Kg(float v) => OrgDivision.KgText(v) + " kg";
 
     /// <summary>
     /// 階級: 計量の体重で入る階級（<see cref="Organization.DivisionOf"/>）が大会の階級でなければ出られない。計量のある団体で上限を超えていれば前日計量で失格、

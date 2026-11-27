@@ -73,7 +73,7 @@
       "height": 1.0726,
       "arms": 0.971,
       "legs": 1.002,
-      "muscle": 0.9381
+      "muscle": 0.8828
     },
     "wear": "glove",
     "weapon": null
@@ -116,7 +116,7 @@
   ],
   "profile": {
     "age": 24,
-    "heightCm": 157,
+    "heightCm": 189,
     "weightKg": 74,
     "birthplace": "カザフスタン",
     "hometown": "アルマトイ",
