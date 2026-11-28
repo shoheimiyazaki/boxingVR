@@ -260,10 +260,16 @@ public sealed partial class Fighter
     internal int ShinIdOf(int foot) => _legParts[foot].Shin;
 
     /// <summary>
-    /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
-    /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
+    /// 体の版（物理の憲法の L2〜L3: つながった物・生理・運動制御・感覚）。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、
+    /// 同じ入力から違う試合になる変更で上げる。材料の値・材料の局所の式の変更は材料の版（<see cref="Materials.MaterialTable.Version"/>）。
+    /// 記録は両方の版を持ち、どちらかが違う記録は再生しない（黙ってどこかでずれる）。2026-11-28 に PhysicsVersion から分けた（番号は続き）。
     /// </summary>
-    public const int PhysicsVersion = 107; // 基準の体を実物へ（体重と慣性をボクセルの実測から・175 cm の体・筋の置き直し、107、確定、枝 claude/base-body-v2）・釣り合いの傾き（作用点が足の外へ出る分だけ加速度と重力の向きへ傾ける）・腰と胴の筋の減衰を 1 歩で止めきる量まで（106、仮番号）・ガルヴァ: はめた鎌の固めた手首・組織の材質・体を保つ筋に材質の強さ（105）・足の運び（104）: 加速度でずれた床反力の作用点から足の荷重を出し、体重の乗った足・ひねりの軸足を後にして構えへ近づく 1 歩で選ぶ・切り返しで宙の足を計画し直す（104）。履歴は docs/VERSIONS.md
+    public const int BodyVersion = 107; // 基準の体を実物へ（体重と慣性をボクセルの実測から・175 cm の体・筋の置き直し、107、確定、枝 claude/base-body-v2）・釣り合いの傾き（作用点が足の外へ出る分だけ加速度と重力の向きへ傾ける）・腰と胴の筋の減衰を 1 歩で止めきる量まで（106、仮番号）・ガルヴァ: はめた鎌の固めた手首・組織の材質・体を保つ筋に材質の強さ（105）・足の運び（104）: 加速度でずれた床反力の作用点から足の荷重を出し、体重の乗った足・ひねりの軸足を後にして構えへ近づく 1 歩で選ぶ・切り返しで宙の足を計画し直す（104）。履歴は docs/VERSIONS.md
+
+    /// <summary>
+    /// 旧い名前（体の版 <see cref="BodyVersion"/> と同じ値）。ドリルの記録の見出しが読む。版の組を書くときは <see cref="PhysicsVersions.Label"/>。
+    /// </summary>
+    public const int PhysicsVersion = BodyVersion;
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }

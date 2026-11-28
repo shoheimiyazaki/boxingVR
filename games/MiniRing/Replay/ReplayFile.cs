@@ -6,8 +6,8 @@ namespace MiniRing.Replay;
 
 /// <summary>リプレイの見出し: 試合を作り直すのに必要なもの（乱数の種・調整値・CPU のボット名）と、記録の素性。</summary>
 public sealed record ReplayHeader(int Seed, string TuningJson, string Host, string AppVersion, DateTime CreatedUtc,
-    string CpuName = Bots.BotCatalog.Legacy, string CpuStyleJson = "", int CpuLogic = 0, int Physics = Fighter.PhysicsVersion,
-    ReplayMatchSettings? MatchSettings = null)
+    string CpuName = Bots.BotCatalog.Legacy, string CpuStyleJson = "", int CpuLogic = 0, int Physics = Fighter.BodyVersion,
+    ReplayMatchSettings? MatchSettings = null, int Material = Materials.MaterialTable.Version)
 {
     /// <summary>
     /// 記録時と同じ CPU の両コーナー。名前ではなく記録したスタイルから作るので、あとで <c>champion</c> を調整し直しても再現できる。
@@ -46,6 +46,8 @@ public sealed record ReplayData(ReplayHeader Header, IReadOnlyList<ReplayStep> S
 ///                | v5: 左右の手形 int32 | 左右の脚指令（有無、目標、膝目標・向きの有無と値、Spring）
 ///   0x02 Checksum: int32 step（そのステップを終えた直後）| uint64 BoxingGame.StateChecksum()
 /// </code>
+/// 版 15: 見出しの最後（matchSettings の後）に int32 material（材料の版、L1: <see cref="Materials.MaterialTable.Version"/>）。physics の欄は体の版（L2〜L3: <see cref="Fighter.BodyVersion"/>）。
+/// 版 14 までの記録は材料の版 1 として読む（分ける前の表と同じ値。体の版が合えば再生できる）。
 /// 版 14: 脚指令の最後に足の点（int32。<see cref="LegCommand.Point"/>: 0 = 足首・1 = かかと。版 13 までの記録は足首）。
 /// 版 13: Step の最後にステップの指令（float × 3。<see cref="FighterCommand.Step"/>。版 12 までの記録は 0）。
 /// 版 11: Step の最後に左右の握りを滑らせる指令（bool Slide。<see cref="HandCommand.Slide"/>。版 10 までの記録は false）。
@@ -58,8 +60,11 @@ public sealed record ReplayData(ReplayHeader Header, IReadOnlyList<ReplayStep> S
 /// </summary>
 public static class ReplayFile
 {
-    public const int Version = 14;
+    public const int Version = 15;
     public const string Extension = ".mrrep";
+
+    /// <summary>材料の版を持たない記録（版 14 まで）の材料の版: 分ける前の表 = 材料の版 1。</summary>
+    private const int FirstMaterialVersion = 1;
     /// <summary>1 ステップの時間刻みとして受け付ける上限 [s]（壊れたファイルの値を物理に渡さない）。</summary>
     public const float MaxDt = 0.25f;
     private const byte StepTag = 1;
@@ -83,6 +88,7 @@ public static class ReplayFile
         writer.Write(header.CpuLogic);
         writer.Write(header.Physics);
         writer.Write(JsonSerializer.Serialize(header.MatchSettings, SettingsJsonOptions));
+        writer.Write(header.Material);
     }
 
     public static void WriteStep(BinaryWriter writer, in ReplayStep step)
@@ -149,6 +155,7 @@ public static class ReplayFile
         var header = new ReplayHeader(reader.ReadInt32(), reader.ReadString(), reader.ReadString(), reader.ReadString(),
             new DateTime(reader.ReadInt64(), DateTimeKind.Utc));
         var recordedPhysics = 0;
+        var recordedMaterial = FirstMaterialVersion;
         if (version >= 2)
         {
             header = header with { CpuName = reader.ReadString(), CpuStyleJson = reader.ReadString(), CpuLogic = reader.ReadInt32() };
@@ -164,6 +171,8 @@ public static class ReplayFile
                     throw new InvalidDataException("Replay match settings are invalid.", e);
                 }
             }
+            // 版 15 から材料の版（L1）を持つ。版 14 までの記録は材料の版を分ける前（体の版 ≤ 107）の表で記録したもので、その表は材料の版 1 と同じ値。
+            recordedMaterial = version >= 15 ? reader.ReadInt32() : FirstMaterialVersion;
             if (header.CpuStyleJson.Length == 0 && header.CpuName != Bots.BotCatalog.Legacy)
             {
                 throw new InvalidDataException($"Replay CPU '{header.CpuName}' has no recorded style.");
@@ -194,7 +203,14 @@ public static class ReplayFile
                 $"Replay was recorded with body physics v{recordedPhysics}; this build has v{Fighter.PhysicsVersion} and cannot reproduce it.");
         }
 
-        header = header with { Physics = recordedPhysics };
+        // 材料の版（L1）が違う記録も再現できない（体の版の比べと同じ。比べもの用の古い体の版で読むときも材料は今の表で回すので同じ断り）。
+        if (recordedMaterial != Materials.MaterialTable.Version)
+        {
+            throw new InvalidDataException(
+                $"Replay was recorded with material table v{recordedMaterial}; this build has v{Materials.MaterialTable.Version} and cannot reproduce it.");
+        }
+
+        header = header with { Physics = recordedPhysics, Material = recordedMaterial };
         var steps = new List<ReplayStep>();
         var checksums = new Dictionary<int, ulong>();
         try

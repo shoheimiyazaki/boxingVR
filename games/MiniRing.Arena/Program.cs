@@ -116,7 +116,7 @@ try
         "motionaudit" => MiniRing.Arena.MotionTools.MotionCommand.Run(Options.Parse(argv[1..], MiniRing.Arena.MotionTools.MotionCommand.OptionNames), audit: true),
         "motionhuman" => MiniRing.Arena.MotionTools.MotionHuman.Run(Options.Parse(argv[1..], "dir", "out", "export", "trace")),
         "recordbout" => RecordBoutCommand(Options.Parse(argv[1..], "red", "blue", "seconds", "seed", "tv", "out")),
-        "version" => Print($"versions physics {MiniRing.Fighter.PhysicsVersion} logic {MiniRing.Bots.BoxerBot.LogicVersion}"),
+        "version" => Print(MiniRing.PhysicsVersions.Label),
         "tvdraft" => TvDraftCommand(Options.Parse(argv[1..], "events", "out", "org")),
         "tvmerge" => TvMergeCommand(Options.Parse(argv[1..], "draft", "extras", "out")),
         "tvlint" => TvLintCommand(Options.Parse(argv[1..], "script", "events", "manifest", "org")),
@@ -2526,7 +2526,7 @@ static int TvScoutCommand(Options o)
     Console.WriteLine($"org {org.Id}");
     TvScout.Print(results, rounds, roundSeconds, Console.Out, org.Drama);
     // 最後の 2 行は機械が読む（tools/tvshow/tvshow.ps1 が種を選び、どの版の物理・ボットで選んだかを残す）。
-    Console.WriteLine($"versions physics {MiniRing.Fighter.PhysicsVersion} logic {MiniRing.Bots.BoxerBot.LogicVersion}");
+    Console.WriteLine(MiniRing.PhysicsVersions.Label);
     Console.WriteLine($"best seed {TvShowRules.Best(results, rounds, roundSeconds, org.Drama).Seed}");
     return 0;
 }

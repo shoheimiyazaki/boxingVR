@@ -13,6 +13,7 @@ namespace MiniRing.Tests;
 /// 教育が空なら今と同じ試合になること自体は <see cref="CharacterSamenessTests"/>。
 /// </summary>
 [TestClass]
+[TestCategory("L4")]
 [TestCategory("slow")]
 public sealed class CharacterFileTests
 {
@@ -220,7 +221,7 @@ public sealed class CharacterFileTests
     public void OldRecordings_WithoutAPlayerStyle_StillRead_AndTheVersionWasRaised()
     {
         var version = ReplayFile.Version;
-        Assert.AreEqual(14, version, "v14: leg commands carry the foot point (ankle or heel); v13: steps carry the step command; v12: leg commands carry the knee control; v11: steps carry the hand Slide flags; v10: steps carry the elbow tuck; v9: matchSettings may carry PlayerStyleJson (v8) and the weapon-bot style JSONs (v9)");
+        Assert.AreEqual(15, version, "v15: the header carries the material version (L1) after the match settings; v14: leg commands carry the foot point (ankle or heel); v13: steps carry the step command; v12: leg commands carry the knee control; v11: steps carry the hand Slide flags; v10: steps carry the elbow tuck; v9: matchSettings may carry PlayerStyleJson (v8) and the weapon-bot style JSONs (v9)");
         var corners = new MatchSelection(MatchMode.Single, CharacterRoster.Get("marcus"), CharacterRoster.Get("dmitri")).Corners;
         var options = new JsonSerializerOptions { IncludeFields = true };
         var node = JsonNode.Parse(JsonSerializer.Serialize(ReplayMatchSettings.From(corners, null), options))!.AsObject();
