@@ -7,6 +7,7 @@ namespace MiniRing.Tests;
 /// 拳を引く筋肉（<see cref="ArmMuscle"/>、Hill 型）: 指令 → 活性化の遅れ → 力 = 活性化 × 最大の力 × 長さの関係 × 速さの関係。
 /// </summary>
 [TestClass]
+[TestCategory("L3a")]
 public sealed class ArmMuscleTests
 {
     private const float Dt = 1f / 240f;

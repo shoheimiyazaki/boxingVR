@@ -8,6 +8,7 @@ namespace MiniRing.Tests;
 /// 「重いパンチ」になり、打ち返さない受け手が 22〜70 点を与えた（直す前は 0。docs/arena/rush_physics.md）。
 /// </summary>
 [TestClass]
+[TestCategory("L3b")]
 public sealed class LimbDriveTests
 {
     [TestMethod]

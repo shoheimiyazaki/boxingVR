@@ -13,6 +13,7 @@ namespace MiniRing.Tests;
 /// 時間の計測（<see cref="StepProfile"/>）は試合の結果に響かない。前の版との結果の一致は <c>miniring-arena perf</c> のチェックサムで確かめた（文書に記録）。
 /// </summary>
 [TestClass]
+[TestCategory("L0")]
 [TestCategory("slow")]
 public sealed class PerformanceTests
 {

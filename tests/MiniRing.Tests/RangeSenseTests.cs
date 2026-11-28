@@ -5,6 +5,7 @@ namespace MiniRing.Tests;
 
 /// <summary>間合いの層（docs/LEARNING_PLAN.md の R）: 危険度は位置関係と速さだけから連続に決まる。</summary>
 [TestClass]
+[TestCategory("L3c")]
 public sealed class RangeSenseTests
 {
     private const float Reach = 0.5296f;

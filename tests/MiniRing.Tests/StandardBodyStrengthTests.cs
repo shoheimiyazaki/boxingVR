@@ -5,6 +5,7 @@ namespace MiniRing.Tests;
 /// 基準の体の寸法・ボクセルを変えたら、この比べが外れて置き直しの値を直すことを知らせる。
 /// </summary>
 [TestClass]
+[TestCategory("L3a")]
 public sealed class StandardBodyStrengthTests
 {
     [TestMethod]

@@ -8,6 +8,7 @@ namespace MiniRing.Tests;
 /// 脳しんとうになり、意識が飛ぶと体の力が抜けて崩れ落ちる。部位の名前で場合分けせず、物理（ねじれ）とボクセル（削れ）だけで決まる。
 /// </summary>
 [TestClass]
+[TestCategory("L1")]
 [TestCategory("slow")]
 public sealed class DamageModelTests
 {

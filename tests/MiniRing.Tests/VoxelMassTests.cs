@@ -7,6 +7,7 @@ namespace MiniRing.Tests;
 /// 紙の体重（<see cref="Characters.BodySizing.PhysicalMassKg"/>）・減量の目標も同じ数え方。1 つの現象に 1 つのモデル（CLAUDE.md §1.5）。
 /// </summary>
 [TestClass]
+[TestCategory("L2")]
 [TestCategory("slow")]
 public sealed class VoxelMassTests
 {

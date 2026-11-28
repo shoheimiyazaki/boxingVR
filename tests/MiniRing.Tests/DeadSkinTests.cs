@@ -4,6 +4,7 @@ namespace MiniRing.Tests;
 
 /// <summary>死んだ体の皮膚は、数秒かけてだんだん青黒くなる（見た目だけ: <see cref="Fighter.Lividity"/>）。</summary>
 [TestClass]
+[TestCategory("L1")]
 [TestCategory("slow")]
 public sealed class DeadSkinTests
 {

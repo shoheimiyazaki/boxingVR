@@ -4,6 +4,7 @@ using MiniRing.Bots;
 namespace MiniRing.Tests;
 
 [TestClass]
+[TestCategory("L3c")]
 public sealed class AttackPerceptionTests
 {
     [TestMethod]

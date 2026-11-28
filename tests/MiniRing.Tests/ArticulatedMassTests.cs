@@ -8,6 +8,7 @@ namespace MiniRing.Tests;
 /// 肩から拳がまっすぐ並んで当たる向きへ揃った腕は、肘の曲がった腕より重い。
 /// </summary>
 [TestClass]
+[TestCategory("L2")]
 public sealed class ArticulatedMassTests
 {
     private const float Dt = 1f / 240f;

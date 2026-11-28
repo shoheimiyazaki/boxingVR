@@ -3,6 +3,7 @@ using System.Numerics;
 namespace MiniRing.Tests;
 
 [TestClass]
+[TestCategory("L3b")]
 public sealed class IntentPhysicsTests
 {
     public TestContext TestContext { get; set; } = null!;

@@ -4,6 +4,7 @@ using Aigis.Physics;
 namespace MiniRing.Tests;
 
 [TestClass]
+[TestCategory("L3b")]
 public sealed class JointDriveTests
 {
     private const float Dt = 1f / 240f;

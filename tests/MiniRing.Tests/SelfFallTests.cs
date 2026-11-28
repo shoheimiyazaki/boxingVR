@@ -10,6 +10,7 @@ namespace MiniRing.Tests;
 /// 測った値（標準ボット 3 組 × 種 1〜4、67 秒）: 標準の体 0.7 回/試合、ダイナミック版の体（足の受け止め許容が従来のまま）4.2 回/試合、試合用の体 1.5 回/試合。
 /// </summary>
 [TestClass]
+[TestCategory("L3b")]
 [TestCategory("slow")]
 public sealed class SelfFallTests
 {

@@ -10,6 +10,7 @@ namespace MiniRing.Tests;
 /// 刃は切り、平らな面は押すだけ、切っ先は深く刺さり、柔らかい方だけが壊れ、細い木は折れる。
 /// </summary>
 [TestClass]
+[TestCategory("L1")]
 public sealed class VoxelContactTests
 {
     private const byte Steel = 1;

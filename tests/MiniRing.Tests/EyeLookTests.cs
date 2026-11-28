@@ -8,6 +8,7 @@ namespace MiniRing.Tests;
 /// 目（2026-11-18、指示書 D）: 黒目が注目している方へ動く・まぶたでまばたき。どちらも描くだけ（見た目）で、材質のセル・試合の計算は変えない。
 /// </summary>
 [TestClass]
+[TestCategory("L3c")]
 public sealed class EyeLookTests
 {
     /// <summary>

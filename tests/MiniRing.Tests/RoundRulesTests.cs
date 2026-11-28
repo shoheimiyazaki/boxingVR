@@ -6,6 +6,7 @@ namespace MiniRing.Tests;
 
 /// <summary>2026-11-11 の追加: 脳の働きの非線形・試合の速さ・ゴング・10 カウントの表示。</summary>
 [TestClass]
+[TestCategory("L6")]
 [TestCategory("slow")]
 public sealed class RoundRulesTests
 {

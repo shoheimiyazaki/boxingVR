@@ -17,6 +17,7 @@ namespace MiniRing.Tests;
 /// </para>
 /// </summary>
 [TestClass]
+[TestCategory("L4")]
 [TestCategory("slow")]
 public sealed class CharacterSamenessTests
 {

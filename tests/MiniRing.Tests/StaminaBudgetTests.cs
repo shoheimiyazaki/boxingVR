@@ -4,6 +4,7 @@ using Aigis.Physics;
 namespace MiniRing.Tests;
 
 [TestClass]
+[TestCategory("L3a")]
 [TestCategory("slow")]
 public sealed class StaminaBudgetTests
 {

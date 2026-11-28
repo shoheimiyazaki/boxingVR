@@ -8,6 +8,7 @@ namespace MiniRing.Tests;
 /// 蹴る足が向きで決まること（前へは後ろ足、後ろへは前足）、エネルギーが湧かないこと、クールダウンが足の運びと筋肉の仕事から出ること。
 /// </summary>
 [TestClass]
+[TestCategory("L3b")]
 public sealed class StepTests
 {
     private const float Dt = 1f / 240f;

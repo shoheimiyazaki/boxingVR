@@ -5,6 +5,7 @@ namespace MiniRing.Tests;
 
 /// <summary>拳の技表（<see cref="PunchBook"/>）: 既定は移す前の値と同じ、JSON の往復、範囲、試合に本当に効く。</summary>
 [TestClass]
+[TestCategory("L5")]
 [TestCategory("slow")]
 public sealed class PunchBookTests
 {

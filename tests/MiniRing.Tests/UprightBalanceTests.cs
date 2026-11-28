@@ -8,6 +8,7 @@ namespace MiniRing.Tests;
 /// ステップの後に上体を折ったままにしないこと。調べものは <c>UprightBalanceProbe</c>（格子・移動・押し）。
 /// </summary>
 [TestClass]
+[TestCategory("L3b")]
 public sealed class UprightBalanceTests
 {
     private const float Dt = 1f / 240f;
