@@ -90,7 +90,7 @@ dotnet run --project games/MiniRing.Arena -c Release -- swordlib --bouts 4 --sec
 
 打ち返さない的では、間合いの近さに損が無い。そこで、技の動きそのもの（人の剣士の打ち込み）から間合いを決めるようにした。
 
-## 5. 体の材質の相似則（`BoxerAnatomy.Doll`）
+## 5. 体の材質の相似則（`MaterialTable.Doll`）
 
 人形の剣は斬れなかった。原因は大きさの釣り合いにある。
 

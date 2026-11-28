@@ -39,7 +39,7 @@ public static class WeaponDrills
     /// <summary>
     /// 振りの速さの相似の倍率（(b) 相似の近道。段 3 で材料を実物（(a)）へ戻したら 1 にして消す: docs/plans/REAL_SCALE_PLAN.md §2.3）:
     /// 人の振りの速さ [m/s] にこれを掛けて、ドリルの速さにする。人形の単位（〜2026-11）では、材質の強さを人形の大きさに比例して縮めた
-    /// （<see cref="BoxerAnatomy.Doll"/>）ので √<see cref="BoxerAnatomy.Similitude"/> = √0.32 倍にしていた（運動エネルギー ∝ 速さ² と、
+    /// （<see cref="MiniRing.Materials.MaterialTable.Doll"/>）ので √<see cref="MiniRing.Materials.MaterialTable.Similitude"/> = √0.32 倍にしていた（運動エネルギー ∝ 速さ² と、
     /// 壊すのに要る仕事 ∝ 強さ の比を人の大きさのときと同じにする）。実物大の (b) 相似では、同じ壊れ方を保つ速さは人形の速さの T = 1.6784 倍
     /// なので、√0.32 × 1.6784 ≈ 0.9494。
     /// </summary>

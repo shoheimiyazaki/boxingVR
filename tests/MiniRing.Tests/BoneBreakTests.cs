@@ -12,6 +12,7 @@ namespace MiniRing.Tests;
 /// グローブの強い 1 発は骨を曲げで折る、使えなくなった腕の手は握っていた武器をしばらくして放す。
 /// </summary>
 [TestClass]
+[TestCategory("L1")]
 [TestCategory("slow")]
 public sealed class BoneBreakTests
 {
@@ -72,7 +73,7 @@ public sealed class BoneBreakTests
     [TestMethod]
     public void Bending_OnlyTheBoneCarriesTheSection_InALimb()
     {
-        // 人形の単位で作っていた材質・格子・押す力を、実物大の相似（BoxerAnatomy.Doll と同じ: 応力 ×1.2602・密度 ×0.4474・たわみ ×2.8169、長さ ×2.8169、力 ×10）で換算した値。
+        // 人形の単位で作っていた材質・格子・押す力を、実物大の相似（MaterialTable.Doll と同じ: 応力 ×1.2602・密度 ×0.4474・たわみ ×2.8169、長さ ×2.8169、力 ×10）で換算した値。
         var bone = new VoxelMaterial("bone", VoxelTissue.Bone, 8f, false, Vector4.One, Vector4.One, Mechanics: new VoxelMechanics(850.1f, 10.08e6f, 0.001408f, Tensile: 3.781e6f, Stiffness: 1.260e9f));
         var flesh = new VoxelMaterial("flesh", VoxelTissue.Flesh, 1f, false, Vector4.One, Vector4.One, Mechanics: new VoxelMechanics(474.2f, 0.126e6f, 0.01408f));
         var palette = new VoxelPalette([Palette[0], flesh, bone]);
