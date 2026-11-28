@@ -10,7 +10,7 @@
 |---|---|---|
 | L0 | `src/Aigis.Physics/PhysicsWorld*.cs`（`Contacts`・`Joints`・`Queries`・`Probes`・`Observation`）、`BepuCallbacks`・`CollisionFilter`・`PairExclusions`・`ContactPairBudget`、`src/Aigis.Foundation`、`Replay/` の固定ステップ | `PhysicsWorld.Wheels.cs` は乗り物（L0 には不要だが無害） |
 | L0 に居る L2 | `src/Aigis.Physics/HumanoidRagdoll*.cs`・`Ragdoll.cs`・`SkeletonState.cs` | **L0 のアセンブリが人体を知っている**（V1） |
-| L1 | `src/Aigis.Physics/Voxels/VoxelContact.cs`（圧力のモデル）・`VoxelBending.cs`（曲げ折れ）・`VoxelBody.cs`・`VoxelClumps.cs`、材料の値は `games/MiniRing/Voxels/BoxerAnatomy.cs`（`SkinMechanics`・`MuscleMechanics`… と `Doll` の相似）、`Fighter.Ligaments.cs`（肘の靭帯の降伏）、`Weapons/Weapon*.cs` の材質 | 材料の表がゲームの体の解剖のファイルに混ざる（V6） |
+| L1 | `src/Aigis.Physics/Voxels/VoxelContact.cs`（圧力のモデル）・`VoxelBending.cs`（曲げ折れ）・`VoxelBody.cs`・`VoxelClumps.cs`、材料の値は `games/MiniRing/Materials/MaterialTable.cs`（2026-11-28 に `BoxerAnatomy` から分けた。人の値 `Human*` と `Doll` の相似）、`Fighter.Ligaments.cs`（肘の靭帯の降伏）、`Weapons/Weapon*.cs` の材質 | 倍率 `Doll` が残る（V6） |
 | L2 | `Fighter.Joints.cs`・`Fighter.Split.cs`・`Voxels/BoxerBody.Split.cs`・`JointBridge.cs`・`BodyMassTable.cs`・`Characters/BodySizing.cs`、`BoxingGame.cs` の `ApplyHit`（運動量の受け渡し）・`BoxingGame.Canvas.cs`（床の衝撃） | 体のグラフが無く、部位は名前と数が固定（`HumanoidRagdoll` の `ArmChain`/`LegChain`、`BodyPartKind`） |
 | L3a | `ArmMuscle.cs`・`StandardBodyStrength.cs`・`Fighter.Stamina.cs`・`Voxels/TissuePhysiology.cs`・`BodyCondition.cs`・`BoxerBody.cs`（臓器・死）・`Fighter.TwistHead`（意識）、`Voxels/BoxerSpine.cs` | 部位 5 つの酸素の蓄え（DEBT 47） |
 | L3b | `Fighter.cs`（目標の追従・`ApplyHover` 等）・`Fighter.JointDrive.cs`・`Fighter.Balance.cs`・`Fighter.Support.cs`・`Fighter.Step.cs`・`Fighter.Quadruped.cs`・`Fighter.Grapple.cs`・`Footwork.cs`・`ArmIk.cs`・`LegIk.cs`・`SupportPolygon.cs`・`StandGuard.cs`、`PunchMechanics.cs`・`Fighter.Impact.cs`（本来 L2 の結果であるべき有効質量の式） | `Fighter.cs` は 3000 行超で L2・L3a・L3b が一つのクラス |
@@ -78,7 +78,7 @@
 | 脚の関節の開き（89） | L0/L2 | 拘束の誤差の上限 | 2 |
 | 鎌の向き（90）・HMD（91）・かかと（92）・腰の位相（93）・konrad（94） | L3b/L5 | 測り直し待ち | 3・4 |
 
-DEBT にまだ無い物（地図で見つけた物）: V3（L0 の人体）、V5（L6 の直接の再生）、V7（感覚を通らない真の値）。DEBT に足すかはユーザーの判断。
+V3（L0 の人体）・V5（L6 の直接の再生）・V7（感覚を通らない真の値）は 2026-11-28 に DEBT に足した（ユーザーの決定）: L0/L2・段 2（順 5）、L6/L3a・段 7（順 10）、L3c/L5・段 7（順 10、B に決定）。V6 の材料の表の混ざりは順 3 で分けた（`games/MiniRing/Materials/MaterialTable.cs`）。倍率 `Doll` は残る（DEBT 9）。
 
 ## 4. 層ごとのテストの組（今と足りない物差し）
 
@@ -112,15 +112,17 @@ DEBT にまだ無い物（地図で見つけた物）: V3（L0 の人体）、V5
 | 7 | N 本の足運び（V2・V8） | L3b | 4 | +1 |
 | 8 | 打撃の一本化（V4） | L2 | 5 | +1 |
 | 9 | 倒れる・起き上がる（V13） | L3b | 6 | +1 |
-| 10 | 感覚の出口を目の状態に通す（V7）、L6 の再生を L3a の式経由に（V5）、`Fighter.cs`・`BoxingGame.cs` を層で分ける（V10） | L3c・L6 | 新（3 以降いつでも） | 判断の版 / 物理 +1 |
+| 10 | **層の口**（計画の段 7）: (a) 感覚の出口（L3c）を通す（V7）— **B に決定**（相手の位置・手・刃の位置を目の残りに応じて遅らせ・ぶらす。傷み・体格・死角は真の値のまま）、(b) 団体の再生を L3a の生理の値として渡す口にする（V5。L6 は値を渡すだけ）、(c) `Fighter.cs`・`BoxingGame.cs` を層で分ける（V10） | L3c・L3a・L6 | 7（3 以降いつでも） | (a) 判断の版 +1 / (b) 体の版（結果が同じなら上げない） |
 | 11 | 相似の倍率（DEBT 9）を消す: 実物の材料の値で試験片と試合が成り立つか | L1 | REAL_SCALE | +1 |
 
 2・3 を段 1 より前に置く理由: 段 1〜6 はすべて「材料が正しい」前提で測り直しになるので、L1 の物差しが先に無いと、後の段で威力・壊れ方がずれたとき原因が L1 か L2 か分からない（CLAUDE.md §6「全部を同時に変えて原因が分からない」）。
 
-## 6. ユーザーに決めてほしいこと
+順 1〜3 は 2026-11-28 に入れた（枝 `worktree-agent-a8758a2b3a0d3706d`）: 物差し `PhysicsSanityTests`（L0: 弾む球・振り子のエネルギー、関節の開き、L2: 自由な鎖の運動量）・`BodySanityTests`（L3b: M1 = 外から立たせる力の体重比、今 91 %）・`ArchitectureRulesTests` の依存の向き（V3・V5・L5 の既知の一覧と `FighterSense` の欄の分類）・層の印（`TestSuiteRulesTests.Layers`）、L1 の試験片 `MaterialSpecimenTests`、材料の表 `games/MiniRing/Materials/MaterialTable.cs`（材料の版 1）。M2・M3・M5 と四足の物差しは段 0 の残り。
 
-1. 層の分け方（L3 を生理・運動制御・感覚の 3 つ、描画・音を外）でよいか。
-2. 版を分けるか（`PhysicsVersion` を Material・Body に）。
-3. V3・V5・V7 を DEBT に載せるか。
-4. 感覚の出口（V7）をどこまで絞るか: 目の状態に通すと、今のボットの強さが落ちる（教育の合わせ直し）。
-5. 順 2・3（L1 の試験片と材料の表の分離）を計画の段 1 より先に入れてよいか。
+## 6. ユーザーの決定（2026-11-28）
+
+1. 層の分け方（L3 を生理・運動制御・感覚の 3 つ、描画・音を外）: **これで良い**。
+2. 版を分ける: **分けた**。材料の版（L1、`MaterialTable.Version` = 1）と体の版（L2〜L3、`Fighter.BodyVersion` = 107、`PhysicsVersion` の番号の続き）。docs/VERSIONS.md。
+3. V3・V5・V7 を DEBT に載せる: **載せた**（DEBT「L0 が人体を知る」「L6 が体を直接治す」「感覚を通らない真の値」）。段は §5 の順 5・10。
+4. 感覚の出口（V7）: **B**（相手の位置・手・刃の位置を、目の残り具合に応じて遅らせ・ぶらす。傷みの具合・体格・死角は今のまま真の値）。実装は §5 の順 10。
+5. 順 2・3 を段 1 より先に: **入れた**。
