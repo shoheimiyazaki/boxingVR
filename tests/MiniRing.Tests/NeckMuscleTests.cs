@@ -10,6 +10,7 @@ namespace MiniRing.Tests;
 /// 残りだけを受ける（<see cref="VoxelBending.FindBreak"/> の tieActivation）。値は最大等尺張力 0.35 MPa・受動 0.035 MPa（人の値 × 相似則）。
 /// </summary>
 [TestClass]
+[TestCategory("L3a")]
 public sealed class NeckMuscleTests
 {
     private static float Threshold(VoxelGrid grid, Vector3 point, Vector3 dir, float tone, int axis = 1, (int, int)? slices = null)

@@ -43,7 +43,7 @@ internal sealed class SwordLibraryLab(int seed)
         report.AppendLine("# 両手の剣の技（swordlib）");
         report.AppendLine();
         report.AppendLine(string.Create(CultureInfo.InvariantCulture,
-            $"体の材質の強さは人形の相似則で人の {MiniRing.Voxels.BoxerAnatomy.Similitude:0.00} 倍（BoxerAnatomy.Doll）。間合いは、物打ち（鍔から切っ先までの先の 4 割）で斬ったボクセル / 60 + 脳しんとう − 自分を斬った分 / 60（決め手）で決める（鍔元や手で押し付けて削った分・押し付けで落とした腕は数えない）。"));
+            $"体の材質の強さは人形の相似則で人の {MiniRing.Materials.MaterialTable.Similitude:0.00} 倍（BoxerAnatomy.Doll）。間合いは、物打ち（鍔から切っ先までの先の 4 割）で斬ったボクセル / 60 + 脳しんとう − 自分を斬った分 / 60（決め手）で決める（鍔元や手で押し付けて削った分・押し付けで落とした腕は数えない）。"));
         report.AppendLine();
         report.AppendLine(string.Create(CultureInfo.InvariantCulture,
             $"日本刀の技は SFU の剣道のモーションキャプチャ（data/mocap/sfu_kendo）から切り出した打ち、ロングソードの技は型の打ち。どれも両手持ちで、人の動きを腕の長さの比で縮め {rate:0.00} 倍の速さでなぞる。技の間合いは、技の動きの中で剣先がいちばん速い時に物打ちが届く距離（一足一刀: 人の剣士の打ち込む距離をそのまま縮めたもの）。構えて立つ相手へその間合い（と前後 14 cm）から 1 回ずつ出して、何を斬ったかを測った。効き = 失わせたボクセル / 60 + 切り落とし × 2 + 死 × 3 + 脳しんとう − 自分を斬った分 / 60。"));

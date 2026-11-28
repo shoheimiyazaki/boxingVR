@@ -10,13 +10,14 @@ namespace MiniRing.Tests;
 /// 手の組織（木の値の代用）は武器の木を変えても変わらない。
 /// </summary>
 [TestClass]
+[TestCategory("L1")]
 public sealed class WoodStrengthTests
 {
     [TestMethod]
     public void OakAgainstCorticalBone_KeepsTheirRealRatioOfBendingStrength()
     {
         // 樫の曲げ強さ（Wood Handbook 表 5-3a: 87〜125 MPa、ホワイトオーク 105）は皮質骨（150 MPa）の 0.6〜0.8 倍。
-        // 木と骨は同じ相似則（BoxerAnatomy.Doll）を通るので、ゲームの値の比も実物の比のまま。前の木（60 MPa）は 0.4 倍で、木だけ折れすぎた。
+        // 木と骨は同じ相似則（MaterialTable.Doll）を通るので、ゲームの値の比も実物の比のまま。前の木（60 MPa）は 0.4 倍で、木だけ折れすぎた。
         var palette = BoxerAnatomy.Palette;
         var ratio = palette[BoxerAnatomy.Wood].Mechanics!.Tensile!.Value / palette[BoxerAnatomy.Bone].Mechanics!.Tensile!.Value;
         Assert.IsTrue(ratio is >= 0.6f and <= 0.8f, $"wood / bone bending strength {ratio:0.00}");
@@ -45,12 +46,12 @@ public sealed class WoodStrengthTests
         var palette = BoxerAnatomy.Palette;
         foreach (var hand in new[] { BoxerAnatomy.HandSkin, BoxerAnatomy.HandMuscle, BoxerAnatomy.HandBone })
         {
-            Assert.AreEqual(BoxerAnatomy.HandMechanics, palette[hand].Mechanics, palette[hand].Name);
+            Assert.AreEqual(MiniRing.Materials.MaterialTable.Hand, palette[hand].Mechanics, palette[hand].Name);
         }
 
-        Assert.IsLessThan(palette[BoxerAnatomy.Wood].Mechanics!.Tensile!.Value, BoxerAnatomy.HandMechanics.Tensile!.Value, "the weapon wood is the stronger, real oak");
+        Assert.IsLessThan(palette[BoxerAnatomy.Wood].Mechanics!.Tensile!.Value, MiniRing.Materials.MaterialTable.Hand.Tensile!.Value, "the weapon wood is the stronger, real oak");
         // 2026-11-25（PhysicsVersion 105）: 武器の樫は実物の密度 700 kg/m³ に戻した（BoxerAnatomy.WeaponDensity）。手の組織は前の相似の密度のまま（手の重さは変えない）。
-        Assert.AreEqual(313f, BoxerAnatomy.HandMechanics.Density, 1e-3f, "the hand weighs as before (its grid is 2-3x a real hand's volume; docs/DEBT.md)");
+        Assert.AreEqual(313f, MiniRing.Materials.MaterialTable.Hand.Density, 1e-3f, "the hand weighs as before (its grid is 2-3x a real hand's volume; docs/DEBT.md)");
         Assert.AreEqual(700f, palette[BoxerAnatomy.Wood].Mechanics!.Density, 1e-3f, "the weapon oak has the real density");
     }
 

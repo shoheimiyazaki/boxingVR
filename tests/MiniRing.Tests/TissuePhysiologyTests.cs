@@ -4,6 +4,7 @@ namespace MiniRing.Tests;
 
 /// <summary>組織の働きの値は体の材質から（2026-11-25）: 人の材質は 1、エイリアンの材質は人より強い。種族で分けない。</summary>
 [TestClass]
+[TestCategory("L3a")]
 public sealed class TissuePhysiologyTests
 {
     [TestMethod]

@@ -8,6 +8,7 @@ namespace MiniRing.Tests;
 /// 手触りの良し悪しは測れないが、発散・転倒・符号ミスはここで捕まえる。
 /// </summary>
 [TestClass]
+[TestCategory("L3b")]
 [TestCategory("slow")]
 public sealed class FighterPhysicsTests
 {

@@ -33,4 +33,30 @@ public sealed class TestSuiteRulesTests
             .ToList();
         Assert.IsEmpty(stray, "move these into a Probe class: " + string.Join(", ", stray));
     }
+
+    /// <summary>
+    /// 層の印（2026-11-28、物理の憲法 §2.7）: テストのクラスに <c>[TestCategory("L0")]</c>〜<c>("L6")</c>（L3 は L3a・L3b・L3c）か、観る側の <c>("View")</c> を
+    /// 1 つだけ付ける（クラスに。メソッドには付けない）。層ごとに回す: <c>dotnet test --filter TestCategory=L1</c>。印の無いクラスは今は許す（主なクラスから付けていく）。
+    /// </summary>
+    public static readonly IReadOnlySet<string> Layers = new HashSet<string> { "L0", "L1", "L2", "L3a", "L3b", "L3c", "L4", "L5", "L6", "View" };
+
+    [TestMethod]
+    public void LayerMarks_AreKnown_AndAtMostOnePerClass()
+    {
+        static bool LooksLikeLayer(string c) => c == "View" || (c.Length is 2 or 3 && c[0] == 'L' && char.IsDigit(c[1]));
+        var bad = new List<string>();
+        foreach (var t in TestClasses())
+        {
+            var marks = t.GetCustomAttributes<TestCategoryAttribute>().SelectMany(a => a.TestCategories).Where(LooksLikeLayer).ToList();
+            if (marks.Count > 1 || marks.Any(m => !Layers.Contains(m)))
+            {
+                bad.Add($"{t.Name}: {string.Join(",", marks)}");
+            }
+
+            bad.AddRange(t.GetMethods().Where(m => m.GetCustomAttributes<TestCategoryAttribute>().SelectMany(a => a.TestCategories).Any(LooksLikeLayer))
+                .Select(m => $"{t.Name}.{m.Name}: 層の印はクラスに"));
+        }
+
+        Assert.IsEmpty(bad, "層の印の誤り: " + string.Join("; ", bad));
+    }
 }

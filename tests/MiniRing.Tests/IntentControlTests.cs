@@ -4,6 +4,7 @@ using MiniRing.Bots;
 namespace MiniRing.Tests;
 
 [TestClass]
+[TestCategory("L5")]
 public sealed class IntentControlTests
 {
     [TestMethod]

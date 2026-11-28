@@ -12,6 +12,7 @@ namespace MiniRing.Tests;
 /// 当たった瞬間の開き（止める力積が足だけに掛かる）は docs/plans/TOE_GAP_STUDY.md の残り。
 /// </summary>
 [TestClass]
+[TestCategory("L2")]
 [TestCategory("slow")]
 public sealed class LegJointGapTests
 {

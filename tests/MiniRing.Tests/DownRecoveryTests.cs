@@ -6,6 +6,7 @@ namespace MiniRing.Tests;
 /// ダウンは段階でなく連続: 体はいつも立とうとし、腰を上げられる高さは意識で決まる。倒れた後は意識が戻るのに合わせてゆっくり起き上がる。
 /// </summary>
 [TestClass]
+[TestCategory("L3b")]
 [TestCategory("slow")]
 public sealed class DownRecoveryTests
 {

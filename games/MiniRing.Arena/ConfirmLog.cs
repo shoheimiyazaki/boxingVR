@@ -38,7 +38,7 @@ internal static class ConfirmLog
             ["question"] = question,
             ["a"] = a,
             ["b"] = b,
-            ["versions"] = $"physics {Fighter.PhysicsVersion} logic {Bots.BoxerBot.LogicVersion}",
+            ["versions"] = $"physics {PhysicsVersions.Body} material {PhysicsVersions.Material} logic {Bots.BoxerBot.LogicVersion}",
             ["seeds"] = seeds.Count <= 8 ? string.Join(',', seeds) : $"{seeds[0]}..{seeds[^1]} ({seeds.Count})",
             ["result"] = result,
             ["detail"] = detail,

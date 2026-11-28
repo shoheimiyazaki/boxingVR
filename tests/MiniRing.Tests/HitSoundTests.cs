@@ -10,6 +10,7 @@ namespace MiniRing.Tests;
 /// 手本の値は録音を同じ測り方（区間ごとの帯の割合・20 ms の包絡・220 Hz より下のゼロ交差の高さ）で測ったもの。強さ 1 が手本の重さ。
 /// </summary>
 [TestClass]
+[TestCategory("View")]
 [TestCategory("slow")]
 public sealed class HitSoundTests
 {

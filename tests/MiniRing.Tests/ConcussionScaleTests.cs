@@ -9,6 +9,7 @@ namespace MiniRing.Tests;
 /// （1 発の脳しんとうの最大 3.9 → 10〜20、意識を飛ばした 1 発のダメージ 29 → 11）。
 /// </summary>
 [TestClass]
+[TestCategory("L3a")]
 public sealed class ConcussionScaleTests
 {
     private const float Dt = 1f / 240f;

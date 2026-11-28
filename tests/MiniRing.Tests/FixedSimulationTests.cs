@@ -5,6 +5,7 @@ using MiniRing.Replay;
 namespace MiniRing.Tests;
 
 [TestClass]
+[TestCategory("L0")]
 public sealed class FixedSimulationTests
 {
     private sealed record State(long Step);

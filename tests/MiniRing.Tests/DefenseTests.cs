@@ -5,6 +5,7 @@ namespace MiniRing.Tests;
 
 /// <summary>防御技（<see cref="DefenseBook"/>）・動き出しの読み・防御ドリル。</summary>
 [TestClass]
+[TestCategory("L5")]
 [TestCategory("slow")]
 public sealed class DefenseTests
 {

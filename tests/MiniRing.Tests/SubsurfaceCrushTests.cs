@@ -10,6 +10,7 @@ namespace MiniRing.Tests;
 /// 拳の後ろで一緒に打ち込む腕と体の質量（massBehind）が無ければ、450 g のグローブそのものの打撃しか無く、何も潰れない。
 /// </summary>
 [TestClass]
+[TestCategory("L1")]
 public sealed class SubsurfaceCrushTests
 {
     private const byte Skin = 1;
@@ -19,15 +20,15 @@ public sealed class SubsurfaceCrushTests
     private const byte Bone = 5;
     private const float Dt = 1f / 240f;
 
-    // BoxerAnatomy.Doll と同じ相似の値: 強さ = 人の値 × StressSimilitude（0.32 × 1.2602 = 0.4033）、密度 = 人の値 × 0.4474、たわむ距離 = 人の値 × 2.817。
+    // MaterialTable.Doll と同じ相似の値: 強さ = 人の値 × StressSimilitude（0.32 × 1.2602 = 0.4033）、密度 = 人の値 × 0.4474、たわむ距離 = 人の値 × 2.817。
     private static readonly VoxelPalette Palette = new(
     [
         new VoxelMaterial("empty", VoxelTissue.Empty, 1f, false, Vector4.Zero, Vector4.Zero),
-        new VoxelMaterial("skin", VoxelTissue.Flesh, 1f, false, Vector4.One, Vector4.One, Mechanics: new VoxelMechanics(492.1f, 1.2e6f * MiniRing.Voxels.BoxerAnatomy.StressSimilitude, 0.01408f, Wear: 0.12f)),
-        new VoxelMaterial("muscle", VoxelTissue.Flesh, 1f, false, Vector4.One, Vector4.One, Mechanics: new VoxelMechanics(474.2f, 0.3e6f * MiniRing.Voxels.BoxerAnatomy.StressSimilitude, 0.01408f)),
-        new VoxelMaterial("leather", VoxelTissue.Solid, 1f, false, Vector4.One, Vector4.One, Mechanics: new VoxelMechanics(492.1f, 2.0e6f * MiniRing.Voxels.BoxerAnatomy.StressSimilitude, 0.01127f)),
-        new VoxelMaterial("padding", VoxelTissue.Solid, 1f, false, Vector4.One, Vector4.One, Mechanics: new VoxelMechanics(53.69f, 0.15e6f * MiniRing.Voxels.BoxerAnatomy.StressSimilitude, 0.02254f)),
-        new VoxelMaterial("bone", VoxelTissue.Bone, 1f, false, Vector4.One, Vector4.One, Mechanics: new VoxelMechanics(850.1f, 25e6f * MiniRing.Voxels.BoxerAnatomy.StressSimilitude, 0.001408f)),
+        new VoxelMaterial("skin", VoxelTissue.Flesh, 1f, false, Vector4.One, Vector4.One, Mechanics: new VoxelMechanics(492.1f, 1.2e6f * MiniRing.Materials.MaterialTable.StressSimilitude, 0.01408f, Wear: 0.12f)),
+        new VoxelMaterial("muscle", VoxelTissue.Flesh, 1f, false, Vector4.One, Vector4.One, Mechanics: new VoxelMechanics(474.2f, 0.3e6f * MiniRing.Materials.MaterialTable.StressSimilitude, 0.01408f)),
+        new VoxelMaterial("leather", VoxelTissue.Solid, 1f, false, Vector4.One, Vector4.One, Mechanics: new VoxelMechanics(492.1f, 2.0e6f * MiniRing.Materials.MaterialTable.StressSimilitude, 0.01127f)),
+        new VoxelMaterial("padding", VoxelTissue.Solid, 1f, false, Vector4.One, Vector4.One, Mechanics: new VoxelMechanics(53.69f, 0.15e6f * MiniRing.Materials.MaterialTable.StressSimilitude, 0.02254f)),
+        new VoxelMaterial("bone", VoxelTissue.Bone, 1f, false, Vector4.One, Vector4.One, Mechanics: new VoxelMechanics(850.1f, 25e6f * MiniRing.Materials.MaterialTable.StressSimilitude, 0.001408f)),
     ]);
 
     private const float GloveRadius = 0.0676f;

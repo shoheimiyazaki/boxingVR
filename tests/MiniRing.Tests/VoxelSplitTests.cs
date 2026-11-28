@@ -9,6 +9,7 @@ namespace MiniRing.Tests;
 /// まるごと断たれれば関節が外れる。分かれた後に体として駆動するのは頭とつながった側だけ。部位の種類で分けない。
 /// </summary>
 [TestClass]
+[TestCategory("L2")]
 [TestCategory("slow")]
 public sealed class VoxelSplitTests
 {

@@ -12,6 +12,7 @@ namespace MiniRing.Tests;
 /// （質量・関節の力を持たず、体の動きを変えない）。刃がつなぎを断てば、つないでいた両側の部位のセルが壊れ、首なら頭が落ちる流れに乗る。
 /// </summary>
 [TestClass]
+[TestCategory("L2")]
 [TestCategory("slow")]
 public sealed class JointBridgeTests
 {

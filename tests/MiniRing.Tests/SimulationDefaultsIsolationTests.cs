@@ -7,6 +7,7 @@ namespace MiniRing.Tests;
 /// 並行して走る別のテスト・試合には漏れない（Probe が既定を変えている間に、並列のテストが既定の物理で走れるように）。
 /// </summary>
 [TestClass]
+[TestCategory("L0")]
 public sealed class SimulationDefaultsIsolationTests
 {
     [TestMethod]

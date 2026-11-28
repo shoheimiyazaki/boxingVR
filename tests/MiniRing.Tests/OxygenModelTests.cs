@@ -9,6 +9,7 @@ namespace MiniRing.Tests;
 /// それぞれ別の見える合図に出る。血管 → その腕だけが遅れる、心臓 → 顔の青白さ、肺 → 血の酸素が減って唇の青さと息のあえぎ。
 /// </summary>
 [TestClass]
+[TestCategory("L3a")]
 public sealed class OxygenModelTests
 {
     private const float Dt = 1f / 240f;

@@ -1,6 +1,5 @@
 using System.Numerics;
 using Aigis.Foundation.Voxels;
-using MiniRing.Voxels;
 
 namespace MiniRing.Weapons;
 
@@ -27,7 +26,7 @@ internal static class GripHand
     public static float Length { get; } = MeasureLength();
 
     /// <summary>手の 1 セルの質量 [kg]（手の組織の密度 × セルの体積。素手の拳と同じ値）。</summary>
-    public static float MassPerCell { get; } = BoxerAnatomy.HandMechanics.Density * HandSkeleton.Cell * HandSkeleton.Cell * HandSkeleton.Cell;
+    public static float MassPerCell { get; } = MiniRing.Materials.MaterialTable.Hand.Density * HandSkeleton.Cell * HandSkeleton.Cell * HandSkeleton.Cell;
 
     /// <summary>空の握り手の格子（置いたときと同じ大きさ。握っていない間の物の剛体に重ねておく）。</summary>
     public static VoxelGrid EmptyGrid()

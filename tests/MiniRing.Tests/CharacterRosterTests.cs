@@ -10,6 +10,7 @@ namespace MiniRing.Tests;
 
 /// <summary>2026-11-16: キャラクターの名簿（国籍・武器・肌の色・体格・名前）と、試合・記録への渡し方。</summary>
 [TestClass]
+[TestCategory("L4")]
 public sealed class CharacterRosterTests
 {
     private static readonly string[] WeaponUsers = ["jin", "konrad", "sean", "daichi", "edgar"];

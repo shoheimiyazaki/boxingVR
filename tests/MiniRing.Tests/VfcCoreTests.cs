@@ -12,6 +12,7 @@ namespace MiniRing.Tests;
 /// 既定の道（四角いリング・今のルール）は別のテスト（ReplayTests ほか）が変わらないことを守る。
 /// </summary>
 [TestClass]
+[TestCategory("L6")]
 [TestCategory("slow")]
 public sealed class VfcCoreTests
 {

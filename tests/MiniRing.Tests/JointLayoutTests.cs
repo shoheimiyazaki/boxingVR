@@ -5,6 +5,7 @@ namespace MiniRing.Tests;
 
 /// <summary>関節の位置: 子の部位の箱が関節から親の側へ大きく飛び出さない（前腕が肘から後ろへ、かかとが足首から後ろへ）。</summary>
 [TestClass]
+[TestCategory("L2")]
 public sealed class JointLayoutTests
 {
     [TestMethod]
